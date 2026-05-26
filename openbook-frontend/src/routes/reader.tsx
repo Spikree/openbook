@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MessageSquare, FileText, BookOpen } from "lucide-react";

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { OpenBook } from "@/store/openBookStore";
 import { FileText } from "lucide-react";
 
