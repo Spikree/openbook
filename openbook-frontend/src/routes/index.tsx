@@ -3,6 +3,7 @@ import { useOpenBookStore } from "@/store/openBookStore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Trash2, FileText } from "lucide-react";
+import { api } from "@/api/client";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -17,6 +18,16 @@ function Home() {
     navigate({ to: "/reader" });
   };
 
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await api.deleteOpenBook(id);
+      deleteOpenBook(id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -28,7 +39,7 @@ function Home() {
         </p>
       </div>
 
-      {openBooks.length === 0 ? (
+      {Object.keys(openBooks).length === 0 ? (
         <div className="text-center py-24 text-muted-foreground">
           <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
           <p className="text-sm font-medium">No OpenBooks yet</p>
@@ -38,7 +49,7 @@ function Home() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {openBooks.map((ob) => (
+          {Object.values(openBooks).map((ob) => (
             <Card
               key={ob.id}
               onClick={() => handleOpen(ob.id)}
@@ -52,10 +63,7 @@ function Home() {
                   variant="ghost"
                   size="icon"
                   className="text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteOpenBook(ob.id);
-                  }}
+                  onClick={(e) => handleDelete(e, ob.id)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

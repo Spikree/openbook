@@ -3,6 +3,8 @@ import type { OpenBook } from "@/store/openBookStore";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
 import { FileText, Sparkles, Trash2 } from "lucide-react";
+import { api } from "@/api/client";
+import ReactMarkdown from "react-markdown";
 
 export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
   const { addSummary, removeSummary } = useOpenBookStore();
@@ -15,22 +17,26 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
   const handleGenerate = async () => {
     if (selectedDocs.length === 0 || isLoading) return;
     setIsLoading(true);
-
-    // mock for now
-    setTimeout(() => {
+    try {
+      const data = await api.summarise(
+        openBook.id,
+        openBook.selectedDocumentIds,
+      );
       addSummary(openBook.id, {
         id: crypto.randomUUID(),
-        content: `This is a mocked summary of ${selectedDocs.map((d) => d.name).join(", ")}. Once Ollama is connected this will be a real summary of your selected documents.`,
+        content: data.summary,
         documentId: selectedDocs[0].id,
         createdAt: new Date().toISOString(),
       });
+    } catch (err) {
+      console.error(err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
     <div className="space-y-4">
-      {/* Selected docs info */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           {selectedDocs.length} document{selectedDocs.length !== 1 ? "s" : ""}{" "}
@@ -47,7 +53,6 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
         </Button>
       </div>
 
-      {/* No docs selected */}
       {selectedDocs.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="w-8 h-8 mx-auto mb-2 opacity-20" />
@@ -55,7 +60,6 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
         </div>
       )}
 
-      {/* Summaries */}
       {openBook.summaries.length === 0 && selectedDocs.length > 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-20" />
@@ -82,9 +86,9 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
                 <Trash2 className="w-3 h-3" />
               </Button>
             </div>
-            <p className="text-sm text-foreground leading-relaxed">
-              {summary.content}
-            </p>
+            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+              <ReactMarkdown>{summary.content}</ReactMarkdown>
+            </div>
           </div>
         ))}
       </div>

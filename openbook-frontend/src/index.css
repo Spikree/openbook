@@ -39,4 +39,22 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+
+  .dyslexia-mode {
+    font-family: "OpenDyslexic", "Atkinson Hyperlegible", sans-serif !important;
+    letter-spacing: 0.05em !important;
+    word-spacing: 0.1em !important;
+    line-height: 1.8 !important;
+  }
+
+  .high-contrast {
+    --background: 0 0% 0% !important;
+    --foreground: 0 0% 100% !important;
+    --card: 0 0% 5% !important;
+    --border: 0 0% 60% !important;
+    --primary: 60 100% 50% !important;
+    --primary-foreground: 0 0% 0% !important;
+    --muted: 0 0% 10% !important;
+    --muted-foreground: 0 0% 80% !important;
+  }
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { OpenBook } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
 import { Sparkles, GraduationCap } from "lucide-react";
+import { api } from "@/api/client";
 
 interface ExamQuestion {
   id: string;
@@ -18,36 +19,27 @@ export function ExamPanel({ openBook }: { openBook: OpenBook }) {
     openBook.selectedDocumentIds.includes(d.id),
   );
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (selectedDocs.length === 0 || isLoading) return;
     setIsLoading(true);
-
-    setTimeout(() => {
-      setQuestions([
-        {
+    try {
+      const data = await api.generateExam(
+        openBook.id,
+        openBook.selectedDocumentIds,
+      );
+      setQuestions(
+        data.questions.map((q: { question: string; answer: string }) => ({
           id: crypto.randomUUID(),
-          question: "Explain the main argument presented in the document.",
-          answer:
-            "Mocked answer — connect Ollama to get real exam questions from your documents.",
+          question: q.question,
+          answer: q.answer,
           revealed: false,
-        },
-        {
-          id: crypto.randomUUID(),
-          question: "What evidence is provided to support the key claims?",
-          answer:
-            "Mocked answer — real answers will be generated from your selected documents.",
-          revealed: false,
-        },
-        {
-          id: crypto.randomUUID(),
-          question: "Critically evaluate the methodology used.",
-          answer:
-            "Mocked answer — Ollama will generate contextual answers once connected.",
-          revealed: false,
-        },
-      ]);
+        })),
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const toggleReveal = (id: string) => {

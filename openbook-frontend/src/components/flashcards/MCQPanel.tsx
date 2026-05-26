@@ -3,6 +3,7 @@ import type { OpenBook } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
 import { Sparkles, CircleDot, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/api/client";
 
 interface MCQQuestion {
   id: string;
@@ -20,48 +21,46 @@ export function MCQPanel({ openBook }: { openBook: OpenBook }) {
     openBook.selectedDocumentIds.includes(d.id),
   );
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (selectedDocs.length === 0 || isLoading) return;
     setIsLoading(true);
-
-    setTimeout(() => {
-      setQuestions([
-        {
-          id: crypto.randomUUID(),
-          question: "Which of the following best describes the main topic?",
-          options: [
-            "Option A (mocked)",
-            "Option B (mocked)",
-            "Option C (mocked)",
-            "Option D (mocked)",
-          ],
-          correctIndex: 0,
-          selectedIndex: null,
-        },
-        {
-          id: crypto.randomUUID(),
-          question: "What is the significance of the key finding?",
-          options: [
-            "It proves X",
-            "It disproves Y",
-            "It suggests Z",
-            "None of the above",
-          ],
-          correctIndex: 2,
-          selectedIndex: null,
-        },
-        {
-          id: crypto.randomUUID(),
-          question: "According to the document, which statement is true?",
-          options: ["Statement A", "Statement B", "Statement C", "Statement D"],
-          correctIndex: 1,
-          selectedIndex: null,
-        },
-      ]);
+    try {
+      const data = await api.generateMCQ(
+        openBook.id,
+        openBook.selectedDocumentIds,
+      );
+      setQuestions(
+        data.questions.map(
+          (q: {
+            question: string;
+            options: string[];
+            correct_index?: number;
+            answer?: string;
+          }) => {
+            let correctIndex = q.correct_index ?? 0;
+            if (q.answer && q.correct_index === undefined) {
+              const found = q.options.findIndex(
+                (o) =>
+                  o.toLowerCase().trim() === q.answer!.toLowerCase().trim(),
+              );
+              if (found !== -1) correctIndex = found;
+            }
+            return {
+              id: crypto.randomUUID(),
+              question: q.question,
+              options: q.options,
+              correctIndex,
+              selectedIndex: null,
+            };
+          },
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
-
   const handleSelect = (questionId: string, index: number) => {
     setQuestions((prev) =>
       prev.map((q) =>

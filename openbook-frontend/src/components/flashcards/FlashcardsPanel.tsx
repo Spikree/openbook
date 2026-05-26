@@ -11,6 +11,7 @@ import {
   Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/api/client";
 
 export function FlashcardsPanel({ openBook }: { openBook: OpenBook }) {
   const { addFlashcard, removeFlashcard } = useOpenBookStore();
@@ -23,40 +24,37 @@ export function FlashcardsPanel({ openBook }: { openBook: OpenBook }) {
     openBook.selectedDocumentIds.includes(d.id),
   );
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (selectedDocs.length === 0 || isLoading) return;
     setIsLoading(true);
-
-    setTimeout(() => {
-      const mockCards = [
-        {
-          front: "What is the main topic of the document?",
-          back: "This is a mocked answer. Connect Ollama to get real flashcards.",
+    try {
+      const data = await api.generateFlashcards(
+        openBook.id,
+        openBook.selectedDocumentIds,
+      );
+      data.flashcards.forEach(
+        (card: {
+          front?: string;
+          back?: string;
+          question?: string;
+          answer?: string;
+        }) => {
+          addFlashcard(openBook.id, {
+            id: crypto.randomUUID(),
+            front: card.front ?? card.question ?? "",
+            back: card.back ?? card.answer ?? "",
+            interval: 1,
+            easeFactor: 2.5,
+            dueDate: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          });
         },
-        {
-          front: "Define the key concept discussed.",
-          back: "Mocked definition. Real answers will come from your documents.",
-        },
-        {
-          front: "What are the three main points?",
-          back: "1. Point one\n2. Point two\n3. Point three (mocked)",
-        },
-      ];
-
-      mockCards.forEach((card) => {
-        addFlashcard(openBook.id, {
-          id: crypto.randomUUID(),
-          front: card.front,
-          back: card.back,
-          interval: 1,
-          easeFactor: 2.5,
-          dueDate: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        });
-      });
-
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleReview = () => {

@@ -3,6 +3,7 @@ import { useOpenBookStore } from "@/store/openBookStore";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, Trash2, CheckSquare, Square } from "lucide-react";
+import { api } from "@/api/client";
 
 export function LeftSidebar() {
   const {
@@ -16,22 +17,26 @@ export function LeftSidebar() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const activeOpenBook = openBooks.find((ob) => ob.id === activeOpenBookId);
+  const activeOpenBook = Object.values(openBooks).find((ob) => ob.id === activeOpenBookId);
 
-  const processFiles = (files: FileList | null) => {
+  const processFiles = async (files: FileList | null) => {
     if (!files || !activeOpenBookId) return;
-    Array.from(files)
-      .filter((f) => f.type === "application/pdf")
-      .forEach((file) => {
-        const url = URL.createObjectURL(file);
+    const pdfs = Array.from(files).filter((f) => f.type === "application/pdf");
+
+    for (const file of pdfs) {
+      try {
+        const uploaded = await api.uploadDocument(activeOpenBookId, file);
         addDocument(activeOpenBookId, {
-          id: crypto.randomUUID(),
-          name: file.name,
-          size: file.size,
-          content: url, // store object URL here
-          uploadedAt: new Date().toISOString(),
+          id: uploaded.id,
+          name: uploaded.name,
+          size: uploaded.size,
+          content: "",
+          uploadedAt: uploaded.uploaded_at,
         });
-      });
+      } catch (err) {
+        console.error("Upload failed", err);
+      }
+    }
   };
 
   if (!activeOpenBook) {

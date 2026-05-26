@@ -51,8 +51,9 @@ interface OpenBookStore {
 
   toggleDocumentSelection: (openBookId: string, docId: string) => void;
   selectAllDocuments: (openBookId: string) => void;
+  clearActiveOpenBook: () => void;
 
-  createOpenBook: (name: string) => void;
+  createOpenBook: (name: string, id?: string) => void;
   deleteOpenBook: (id: string) => void;
   setActiveOpenBook: (id: string) => void;
 
@@ -88,13 +89,13 @@ export const useOpenBookStore = create<OpenBookStore>()(
       openBooks: {},
       activeOpenBookId: null,
 
-      createOpenBook: (name) => {
-        const id = crypto.randomUUID();
+      createOpenBook: (name, id) => {
+        const bookId = id ?? crypto.randomUUID();
         set((state) => ({
           openBooks: {
             ...state.openBooks,
-            [id]: {
-              id,
+            [bookId]: {
+              id: bookId,
               name,
               documents: [],
               selectedDocumentIds: [],
@@ -213,7 +214,10 @@ export const useOpenBookStore = create<OpenBookStore>()(
             updatedAt: new Date().toISOString(),
           })),
         })),
+
+      clearActiveOpenBook: () => set({ activeOpenBookId: null }),
     }),
+
     {
       name: "openbook-store",
       partialize: (state) => ({
@@ -224,7 +228,6 @@ export const useOpenBookStore = create<OpenBookStore>()(
             {
               ...ob,
               documents: ob.documents.map(({ content: _, ...rest }) => rest),
-              conversations: ob.conversations,
             },
           ]),
         ),

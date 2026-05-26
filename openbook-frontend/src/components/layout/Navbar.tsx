@@ -16,19 +16,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
+import { api } from "@/api/client";
+import { Home } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Settings } from "lucide-react";
 
 type DialogView = "choice" | "create";
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
-  const { openBooks, activeOpenBookId, createOpenBook, setActiveOpenBook } =
-    useOpenBookStore();
+  const {
+    openBooks,
+    activeOpenBookId,
+    createOpenBook,
+    setActiveOpenBook,
+    clearActiveOpenBook,
+  } = useOpenBookStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [view, setView] = useState<DialogView>("choice");
   const [name, setName] = useState("");
   const navigate = useNavigate();
 
-  const activeOpenBook = openBooks.find((ob) => ob.id === activeOpenBookId);
+  const activeOpenBook = Object.values(openBooks).find(
+    (ob) => ob.id === activeOpenBookId,
+  );
 
   const handleOpen = () => {
     setView("choice");
@@ -41,11 +52,17 @@ export function Navbar() {
     setTimeout(() => setView("choice"), 200);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return;
-    createOpenBook(name.trim());
-    setName("");
-    handleClose();
+    try {
+      const created = await api.createOpenBook(name.trim());
+      // use the real id from backend
+      useOpenBookStore.getState().createOpenBook(created.name, created.id);
+      setName("");
+      handleClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSwitch = (id: string) => {
@@ -62,6 +79,18 @@ export function Navbar() {
     <>
       <header className="h-16 flex items-center justify-between px-6 bg-card border-b border-border gap-4">
         {/* Left — open/create */}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            clearActiveOpenBook();
+            navigate({ to: "/" });
+          }}
+        >
+          <Home className="w-4 h-4" />
+        </Button>
+
         <Button
           size="sm"
           variant="outline"
@@ -84,7 +113,7 @@ export function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-56">
-                {openBooks.map((ob) => (
+                {Object.values(openBooks).map((ob) => (
                   <DropdownMenuItem
                     key={ob.id}
                     onClick={() => handleSwitch(ob.id)}
@@ -116,6 +145,13 @@ export function Navbar() {
             <Moon className="w-4 h-4" />
           )}
         </Button>
+
+        {/* take you to the settings*/}
+        <Link to="/settings">
+          <Button variant="ghost" size="icon">
+            <Settings className="w-4 h-4" />
+          </Button>
+        </Link>
       </header>
 
       <Dialog open={dialogOpen} onOpenChange={handleClose}>
@@ -140,7 +176,7 @@ export function Navbar() {
                       Your OpenBooks
                     </p>
                     <div className="space-y-1 max-h-64 overflow-y-auto">
-                      {openBooks.map((ob) => (
+                      {Object.values(openBooks).map((ob) => (
                         <button
                           key={ob.id}
                           onClick={() => handleOpenExisting(ob.id)}

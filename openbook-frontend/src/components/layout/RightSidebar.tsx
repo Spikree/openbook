@@ -7,7 +7,7 @@ import { MCQPanel } from "@/components/flashcards/MCQPanel";
 
 export function RightSidebar() {
   const { openBooks, activeOpenBookId } = useOpenBookStore();
-  const activeOpenBook = openBooks.find((ob) => ob.id === activeOpenBookId);
+  const activeOpenBook = Object.values(openBooks).find((ob) => ob.id === activeOpenBookId);
 
   if (!activeOpenBook) {
     return (
