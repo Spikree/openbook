@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pdfplumber
+httpx
+python-dotenv
+asyncpg
+sqlalchemy[asyncio]
+alembic
+psycopg2-binary
