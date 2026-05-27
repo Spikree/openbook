@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import get_db
-from app.models.schemas import OpenBook
+from app.models.schemas import Document, OpenBook
 
 router = APIRouter()
 
@@ -81,3 +81,33 @@ async def update_openbook(
     await db.commit()
     await db.refresh(openbook)
     return openbook
+
+
+@router.get("/{openbook_id}/full")
+async def get_openbook_full(openbook_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(OpenBook).where(OpenBook.id == openbook_id))
+    openbook = result.scalar_one_or_none()
+    if not openbook:
+        raise HTTPException(status_code=404, detail="OpenBook not found")
+
+    docs_result = await db.execute(
+        select(Document).where(Document.openbook_id == openbook_id)
+    )
+    documents = docs_result.scalars().all()
+
+    return {
+        "id": openbook.id,
+        "name": openbook.name,
+        "created_at": openbook.created_at,
+        "updated_at": openbook.updated_at,
+        "documents": [
+            {
+                "id": d.id,
+                "name": d.name,
+                "size": d.size,
+                "content": "",
+                "uploadedAt": d.uploaded_at,
+            }
+            for d in documents
+        ],
+    }
