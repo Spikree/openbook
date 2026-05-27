@@ -80,22 +80,31 @@ async def generate_flashcards(
         raise HTTPException(status_code=400, detail="No documents selected")
 
     prompt = """Generate 10 flashcards from the provided documents.
-    Return ONLY a JSON array in this exact format, no other text:
-    [
-      {"front": "question here", "back": "answer here"}
-    ]
-    Never use "question" or "answer" as keys, always use "front" and "back"."""
+Return ONLY a JSON array in this exact format, no other text, no markdown, no backticks:
+[
+  {"front": "question here", "back": "answer here"}
+]
+Never use "question" or "answer" as keys, always use "front" and "back"."""
 
     response = await generate(prompt, context)
-    try:
-        cards = json.loads(response)
-    except json.JSONDecodeError:
-        import re
 
-        match = re.search(r"\[.*\]", response, re.DOTALL)
-        if match:
-            cards = json.loads(match.group())
-        else:
+    try:
+        # try direct parse first
+        clean = response.strip().strip("```json").strip("```").strip()
+        cards = json.loads(clean)
+    except json.JSONDecodeError:
+        try:
+            # try regex fallback
+            import re
+
+            match = re.search(r"\[.*?\]", response, re.DOTALL)
+            if match:
+                cards = json.loads(match.group())
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Failed to parse flashcards"
+                )
+        except (json.JSONDecodeError, Exception):
             raise HTTPException(status_code=500, detail="Failed to parse flashcards")
 
     return {"flashcards": cards}

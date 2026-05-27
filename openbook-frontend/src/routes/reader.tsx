@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef, useState } from "react";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MessageSquare, FileText, BookOpen } from "lucide-react";
 import { ChatPanel } from "@/components/reader/ChatPanel";
 import { SummaryPanel } from "@/components/reader/SummaryPanel";
 import { PDFPanel } from "@/components/reader/PDFPanel";
+import { SelectionPopover } from "@/components/reader/SelectionPopover";
 
 export const Route = createFileRoute("/reader")({
   component: Reader,
@@ -12,7 +14,9 @@ export const Route = createFileRoute("/reader")({
 
 function Reader() {
   const { openBooks, activeOpenBookId } = useOpenBookStore();
-  const activeOpenBook = Object.values(openBooks).find((ob) => ob.id === activeOpenBookId);
+  const activeOpenBook = openBooks[activeOpenBookId ?? ""];
+  const [activeTab, setActiveTab] = useState("chat");
+  const chatTriggerRef = useRef<((message: string) => void) | null>(null);
 
   if (!activeOpenBook) {
     return (
@@ -25,9 +29,34 @@ function Reader() {
     );
   }
 
+  const handleSelectionAction = (
+    text: string,
+    action: "explain" | "simplify" | "define",
+  ) => {
+    const prompts = {
+      explain: `Explain this: "${text}"`,
+      simplify: `Simplify this text: "${text}"`,
+      define: `Define this term: "${text}"`,
+    };
+    setActiveTab("chat");
+    setTimeout(() => {
+      chatTriggerRef.current?.(prompts[action]);
+    }, 100);
+  };
+
   return (
-    <div className="h-full flex flex-col">
-      <Tabs defaultValue="chat" className="flex flex-col h-full">
+    <div className="h-full flex flex-col relative">
+      <SelectionPopover
+        onExplain={(text) => handleSelectionAction(text, "explain")}
+        onSimplify={(text) => handleSelectionAction(text, "simplify")}
+        onDefine={(text) => handleSelectionAction(text, "define")}
+      />
+
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-col h-full"
+      >
         <div className="shrink-0 border-b border-border px-4">
           <TabsList className="bg-transparent h-12 gap-1">
             <TabsTrigger
@@ -55,7 +84,12 @@ function Reader() {
         </div>
 
         <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
-          <ChatPanel openBook={activeOpenBook} />
+          <ChatPanel
+            openBook={activeOpenBook}
+            onRegisterTrigger={(fn) => {
+              chatTriggerRef.current = fn;
+            }}
+          />
         </TabsContent>
         <TabsContent
           value="summary"

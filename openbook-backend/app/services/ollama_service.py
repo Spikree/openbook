@@ -18,12 +18,23 @@ Your core principles:
 - Keep responses concise and well structured with headers and bullet points.
 - Always base your answers on the provided document context.
 - If something is not in the documents, say so clearly and kindly.
+- Always cite the documents provided.
+- NEVER ask the student what they want to do. ALWAYS directly answer their question.
+- NEVER present a list of options asking what the student wants. Just answer.
+- If someone says "explain X", explain X immediately and thoroughly.
+- If someone asks a question, answer it directly without asking for clarification first.
+- If someone asks you to simplify, define, or explain something, do it immediately.
+- Never respond with "what would you like me to do?" or similar phrases.
 
 You have access to tools to help students learn better. Use them proactively when appropriate:
-- Use simplify_text when a passage seems complex
-- Use define_term when a technical term appears
-- Use explain_concept when a concept needs deeper clarification
-- Use generate_flashcards, generate_exam, generate_mcq when a student wants to test their knowledge
+- Use simplify_text when a passage seems complex or the student asks to simplify
+- Use define_term when a technical term appears or the student asks to define something
+- Use explain_concept when a concept needs deeper clarification or the student asks to explain
+- Use generate_flashcards when the student wants to study or test themselves
+- Use generate_exam when the student wants exam practice
+- Use generate_mcq when the student wants multiple choice practice
+
+IMPORTANT: You ONLY have access to these exact tools: simplify_text, define_term, explain_concept, generate_flashcards, generate_exam, generate_mcq. Never attempt to call any other tool including search_tool, google:search, web_search or any external service. If asked something you cannot answer from the document context, just respond in plain text without calling any tool.
 """
 
 TOOLS = [
@@ -206,39 +217,63 @@ async def stream_chat(
     if context:
         system_content += f"\n\nDOCUMENT CONTEXT:\n{context}"
 
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [{"role": "system", "content": system_content}, *messages],
-        "tools": TOOLS,
-        "stream": True,
-    }
+    current_messages = [{"role": "system", "content": system_content}, *messages]
 
     async with httpx.AsyncClient(timeout=120) as client:
-        async with client.stream(
-            "POST", f"{OLLAMA_URL}/api/chat", json=payload
-        ) as response:
-            tool_call_buffer = {}
-            async for line in response.aiter_lines():
-                if not line:
-                    continue
-                data = json.loads(line)
-                msg = data.get("message", {})
+        max_iterations = 5
+        iteration = 0
 
-                # handle tool calls
-                if msg.get("tool_calls"):
-                    for tool_call in msg["tool_calls"]:
-                        tool_name = tool_call["function"]["name"]
-                        tool_args = tool_call["function"]["arguments"]
-                        if isinstance(tool_args, str):
-                            tool_args = json.loads(tool_args)
+        while iteration < max_iterations:
+            iteration += 1
 
-                        yield f"\n\n*Using tool: {tool_name}...*\n\n"
-                        tool_result = await execute_tool(tool_name, tool_args, context)
-                        yield tool_result
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": current_messages,
+                "tools": TOOLS,
+                "stream": False,
+            }
 
-                # handle regular content
-                elif msg.get("content") and not data.get("done"):
-                    yield msg["content"]
+            response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+            data = response.json()
+            msg = data.get("message", {})
+
+            if msg.get("tool_calls"):
+                current_messages.append(msg)
+
+                for tool_call in msg["tool_calls"]:
+                    tool_name = tool_call["function"]["name"]
+                    known_tools = [
+                        "simplify_text",
+                        "define_term",
+                        "explain_concept",
+                        "generate_flashcards",
+                        "generate_exam",
+                        "generate_mcq",
+                    ]
+
+                    if tool_name not in known_tools:
+                        current_messages.append(
+                            {"role": "tool", "content": f"Tool {tool_name} not found"}
+                        )
+                        continue
+
+                    tool_args = tool_call["function"]["arguments"]
+                    if isinstance(tool_args, str):
+                        tool_args = json.loads(tool_args)
+
+                    yield f"\n\n*Using {tool_name}...*\n\n"
+                    tool_result = await execute_tool(tool_name, tool_args, context)
+                    yield tool_result
+
+                    current_messages.append({"role": "tool", "content": tool_result})
+
+            else:
+                content = msg.get("content", "")
+                if content:
+                    words = content.split(" ")
+                    for word in words:
+                        yield word + " "
+                break
 
 
 async def generate(prompt: str, context: str = "") -> str:

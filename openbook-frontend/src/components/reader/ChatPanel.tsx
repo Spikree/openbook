@@ -7,7 +7,12 @@ import { cn } from "@/lib/utils";
 import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
 
-export function ChatPanel({ openBook }: { openBook: OpenBook }) {
+interface ChatPanelProps {
+  openBook: OpenBook;
+  onRegisterTrigger?: (fn: (message: string) => void) => void;
+}
+
+export function ChatPanel({ openBook, onRegisterTrigger }: ChatPanelProps) {
   const { addMessage, clearConversation } = useOpenBookStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,13 +23,13 @@ export function ChatPanel({ openBook }: { openBook: OpenBook }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [openBook.conversations, streamingContent]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSendMessage = async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return;
 
     const userMessage = {
       id: crypto.randomUUID(),
       role: "user" as const,
-      content: input.trim(),
+      content: messageText.trim(),
       createdAt: new Date().toISOString(),
     };
 
@@ -63,12 +68,25 @@ export function ChatPanel({ openBook }: { openBook: OpenBook }) {
     }
   };
 
+  const handleSend = async () => {
+    await handleSendMessage(input);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
+
+  useEffect(() => {
+    onRegisterTrigger?.((message: string) => {
+      setInput(message);
+      setTimeout(() => {
+        handleSendMessage(message);
+      }, 50);
+    });
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -94,6 +112,9 @@ export function ChatPanel({ openBook }: { openBook: OpenBook }) {
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
             <Bot className="w-8 h-8 opacity-20" />
             <p className="text-sm">Ask anything about your documents</p>
+            <p className="text-xs opacity-60">
+              Select text anywhere to explain, simplify or define
+            </p>
           </div>
         ) : (
           <>
