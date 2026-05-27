@@ -12,6 +12,12 @@ export const api = {
     return res.json();
   },
 
+  getOpenBookFull: async (id: string) => {
+    const res = await fetch(`${BASE_URL}/openbooks/${id}/full`);
+    if (!res.ok) throw new Error("Failed to fetch OpenBook");
+    return res.json();
+  },
+
   getOpenBooks: async () => {
     const res = await fetch(`${BASE_URL}/openbooks/`);
     if (!res.ok) throw new Error("Failed to fetch OpenBooks");

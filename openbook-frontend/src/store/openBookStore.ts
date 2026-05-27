@@ -1,3 +1,4 @@
+import { api } from "@/api/client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -56,6 +57,7 @@ interface OpenBookStore {
   createOpenBook: (name: string, id?: string) => void;
   deleteOpenBook: (id: string) => void;
   setActiveOpenBook: (id: string) => void;
+  loadOpenBooks: () => Promise<void>;
 
   addDocument: (openBookId: string, doc: OpenBookDocument) => void;
   removeDocument: (openBookId: string, docId: string) => void;
@@ -205,6 +207,34 @@ export const useOpenBookStore = create<OpenBookStore>()(
             updatedAt: new Date().toISOString(),
           })),
         })),
+
+      loadOpenBooks: async () => {
+        const openBooks = await api.getOpenBooks();
+        const fullBooks = await Promise.all(
+          openBooks.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
+        );
+        const record: Record<string, OpenBook> = {};
+        fullBooks.forEach((ob: any) => {
+          record[ob.id] = {
+            id: ob.id,
+            name: ob.name,
+            documents: ob.documents.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              size: d.size,
+              content: d.content,
+              uploadedAt: d.uploadedAt,
+            })),
+            selectedDocumentIds: ob.documents.map((d: any) => d.id),
+            conversations: [],
+            flashcards: [],
+            summaries: [],
+            createdAt: ob.created_at,
+            updatedAt: ob.updated_at,
+          };
+        });
+        set({ openBooks: record });
+      },
 
       removeSummary: (openBookId, summaryId) =>
         set((state) => ({
