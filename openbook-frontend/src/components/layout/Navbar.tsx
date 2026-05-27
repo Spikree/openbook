@@ -1,4 +1,12 @@
-import { Moon, Sun, Plus, BookOpen, ChevronDown } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Plus,
+  BookOpen,
+  ChevronDown,
+  Settings,
+  Home,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/useTheme";
 import { useOpenBookStore } from "@/store/openBookStore";
@@ -17,9 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@/api/client";
-import { Home } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { SettingsSheet } from "@/components/settings/SettingsSheet";
 
 type DialogView = "choice" | "create";
 
@@ -34,6 +40,7 @@ export function Navbar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [view, setView] = useState<DialogView>("choice");
   const [name, setName] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
   const activeOpenBook = Object.values(openBooks).find(
@@ -146,12 +153,17 @@ export function Navbar() {
         </Button>
 
         {/* take you to the settings*/}
-        <Link to="/settings">
-          <Button variant="ghost" size="icon">
-            <Settings className="w-4 h-4" />
-          </Button>
-        </Link>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
       </header>
+
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       <Dialog open={dialogOpen} onOpenChange={handleClose}>
         <DialogContent className="!bg-card sm:max-w-md border border-border">

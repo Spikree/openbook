@@ -40,6 +40,10 @@
     color: hsl(var(--foreground));
   }
 
+  body * {
+    line-height: inherit !important;
+  }
+
   .dyslexia-mode {
     font-family: "OpenDyslexic", "Atkinson Hyperlegible", sans-serif !important;
     letter-spacing: 0.05em !important;

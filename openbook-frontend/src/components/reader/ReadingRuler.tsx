@@ -20,7 +20,7 @@ export function ReadingRuler() {
 
   return (
     <div
-      className="fixed left-0 right-0 pointer-events-none z-50 transition-transform duration-75"
+      className="fixed left-0 right-0 pointer-events-none z-[9999] transition-transform duration-75"
       style={{
         top: y - 12,
         height: 28,

@@ -22,7 +22,11 @@ export function useApplySettings() {
       root.classList.remove("high-contrast");
     }
 
-    root.style.lineHeight = `${lineHeight}`;
+    document.body.style.setProperty(
+      "line-height",
+      `${lineHeight}`,
+      "important",
+    );
   }, [dyslexiaFont, fontSize, lineHeight, highContrast]);
 
   return { readingRuler };
