@@ -28,7 +28,6 @@ export function Navbar() {
   const {
     openBooks,
     activeOpenBookId,
-    createOpenBook,
     setActiveOpenBook,
     clearActiveOpenBook,
   } = useOpenBookStore();
@@ -170,7 +169,7 @@ export function Navbar() {
                   Create New OpenBook
                 </Button>
 
-                {openBooks.length > 0 && (
+                {Object.keys(openBooks).length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                       Your OpenBooks

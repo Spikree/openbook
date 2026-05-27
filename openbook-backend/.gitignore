@@ -2,9 +2,10 @@
 venv/
 env/
 
+# Including env variables since they are local
 # Environment variables
-.env
-.env.*
+# .env
+# .env.*
 
 # Python
 __pycache__/
