@@ -170,3 +170,56 @@ async def generate_mcq(body: GenerateRequest, db: AsyncSession = Depends(get_db)
             raise HTTPException(status_code=500, detail="Failed to parse MCQ questions")
 
     return {"questions": questions}
+
+
+class MarkExamRequest(BaseModel):
+    openbook_id: str
+    questions_and_answers: list[dict]  # [{question, model_answer, user_answer}]
+
+
+@router.post("/mark-exam")
+async def mark_exam(body: MarkExamRequest, db: AsyncSession = Depends(get_db)):
+    prompt = f"""You are marking a student's exam. For each question, compare the student's answer to the model answer and provide:
+1. A score out of 10
+2. Brief encouraging feedback
+3. What they got right
+4. What they missed (if anything)
+
+Questions and answers:
+{json.dumps(body.questions_and_answers, indent=2)}
+
+Return ONLY a JSON object in this exact format, no other text:
+{{
+  "total_score": 0,
+  "max_score": 0,
+  "percentage": 0,
+  "results": [
+    {{
+      "question": "...",
+      "user_answer": "...",
+      "score": 0,
+      "max_score": 10,
+      "feedback": "...",
+      "what_you_got_right": "...",
+      "what_you_missed": "..."
+    }}
+  ]
+}}"""
+
+    response = await generate(prompt, "")
+
+    try:
+        clean = response.strip().strip("```json").strip("```").strip()
+        result = json.loads(clean)
+    except json.JSONDecodeError:
+        import re
+
+        match = re.search(r"\{.*\}", response, re.DOTALL)
+        if match:
+            result = json.loads(match.group())
+        else:
+            raise HTTPException(
+                status_code=500, detail="Failed to parse marking results"
+            )
+
+    return result

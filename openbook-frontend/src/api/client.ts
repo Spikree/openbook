@@ -157,4 +157,24 @@ export const api = {
       }
     }
   },
+
+  markExam: async (
+    openBookId: string,
+    questionsAndAnswers: {
+      question: string;
+      model_answer: string;
+      user_answer: string;
+    }[],
+  ) => {
+    const res = await fetch(`${BASE_URL}/ai/mark-exam`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        openbook_id: openBookId,
+        questions_and_answers: questionsAndAnswers,
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to mark exam");
+    return res.json();
+  },
 };
