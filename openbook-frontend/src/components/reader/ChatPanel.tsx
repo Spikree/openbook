@@ -1,27 +1,48 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useUIStore } from "@/store/uiStore";
 import type { OpenBook } from "@/store/openBookStore";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, Bot, User, Trash2 } from "lucide-react";
+import {
+  SendHorizonal,
+  Bot,
+  User,
+  Trash2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
+import { useTTS } from "@/hooks/useTTS";
 
 interface ChatPanelProps {
   openBook: OpenBook;
-  onRegisterTrigger?: (fn: (message: string) => void) => void;
 }
 
-export function ChatPanel({ openBook, onRegisterTrigger }: ChatPanelProps) {
+export function ChatPanel({ openBook }: ChatPanelProps) {
   const { addMessage, clearConversation } = useOpenBookStore();
+  const { pendingChatMessage, setPendingChatMessage } = useUIStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { speak, stop, isSpeaking } = useTTS();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [openBook.conversations, streamingContent]);
+
+  const handleSpeak = (id: string, content: string) => {
+    if (speakingId === id && isSpeaking) {
+      stop();
+      setSpeakingId(null);
+    } else {
+      setSpeakingId(id);
+      speak(content, () => setSpeakingId(null));
+    }
+  };
 
   const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
@@ -68,6 +89,14 @@ export function ChatPanel({ openBook, onRegisterTrigger }: ChatPanelProps) {
     }
   };
 
+  useEffect(() => {
+    if (pendingChatMessage) {
+      const msg = pendingChatMessage;
+      setPendingChatMessage(null);
+      setTimeout(() => handleSendMessage(msg), 0);
+    }
+  }, [pendingChatMessage]);
+
   const handleSend = async () => {
     await handleSendMessage(input);
   };
@@ -78,15 +107,6 @@ export function ChatPanel({ openBook, onRegisterTrigger }: ChatPanelProps) {
       handleSend();
     }
   };
-
-  useEffect(() => {
-    onRegisterTrigger?.((message: string) => {
-      setInput(message);
-      setTimeout(() => {
-        handleSendMessage(message);
-      }, 50);
-    });
-  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -131,22 +151,37 @@ export function ChatPanel({ openBook, onRegisterTrigger }: ChatPanelProps) {
                     <Bot className="w-3.5 h-3.5 text-primary" />
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "max-w-[80%] rounded-xl px-3 py-2 text-sm",
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground",
-                  )}
-                >
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+                {msg.role === "assistant" ? (
+                  <div className="flex flex-col gap-1 max-w-[80%]">
+                    <div className="rounded-xl px-3 py-2 text-sm bg-muted text-foreground">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     </div>
-                  ) : (
-                    msg.content
-                  )}
-                </div>
+                    <button
+                      onClick={() => handleSpeak(msg.id, msg.content)}
+                      className="self-start flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+                    >
+                      {speakingId === msg.id && isSpeaking ? (
+                        <>
+                          <VolumeX className="w-3 h-3" />
+                          Stop
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-3 h-3" />
+                          Listen
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm bg-primary text-primary-foreground">
+                    {msg.content}
+                  </div>
+                )}
+
                 {msg.role === "user" && (
                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
                     <User className="w-3.5 h-3.5 text-muted-foreground" />

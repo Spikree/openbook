@@ -1,39 +1,28 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, BookOpen, Search } from "lucide-react";
+import { useUIStore } from "@/store/uiStore";
 
-interface SelectionPopoverProps {
-  onExplain: (text: string) => void;
-  onSimplify: (text: string) => void;
-  onDefine: (text: string) => void;
-}
-
-export function SelectionPopover({
-  onExplain,
-  onSimplify,
-  onDefine,
-}: SelectionPopoverProps) {
+export function SelectionPopover() {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
   );
   const [selectedText, setSelectedText] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
+  const { setPendingChatMessage, setActiveReaderTab } = useUIStore();
 
   useEffect(() => {
-    const handleMouseUp = (_e: MouseEvent) => {
+    const handleMouseUp = () => {
       setTimeout(() => {
         const selection = window.getSelection();
         const text = selection?.toString().trim();
-
         if (!text || text.length < 3) {
           setPosition(null);
           setSelectedText("");
           return;
         }
-
         const range = selection?.getRangeAt(0);
         const rect = range?.getBoundingClientRect();
-
         if (rect) {
           setPosition({
             x: rect.left + rect.width / 2,
@@ -80,7 +69,8 @@ export function SelectionPopover({
         variant="ghost"
         className="h-7 px-2 text-xs gap-1.5"
         onClick={() => {
-          onExplain(selectedText);
+          setActiveReaderTab("chat");
+          setPendingChatMessage(`Explain this: "${selectedText}"`);
           setPosition(null);
         }}
       >
@@ -93,7 +83,8 @@ export function SelectionPopover({
         variant="ghost"
         className="h-7 px-2 text-xs gap-1.5"
         onClick={() => {
-          onSimplify(selectedText);
+          setActiveReaderTab("chat");
+          setPendingChatMessage(`Simplify this text: "${selectedText}"`);
           setPosition(null);
         }}
       >
@@ -106,7 +97,8 @@ export function SelectionPopover({
         variant="ghost"
         className="h-7 px-2 text-xs gap-1.5"
         onClick={() => {
-          onDefine(selectedText);
+          setActiveReaderTab("chat");
+          setPendingChatMessage(`Define this term: "${selectedText}"`);
           setPosition(null);
         }}
       >

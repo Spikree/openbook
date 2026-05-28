@@ -12,13 +12,13 @@
 ✅ FastAPI + PostgreSQL + Alembic
 ✅ Ollama with tool calls + system prompt
 ✅ Docker Compose — one command setup
+✅ Highlight to explain — select text in PDF, ask AI
+✅ the exams should have user input where they answer all the questions and the ai checks all of them in the end
 ✅ README
 
 ⏳ Settings model/URL taking effect on backend
-⏳ the exams should have user input where they answer all the questions and the ai checks all of them in the end
 ⏳ Electron app with bundled backend (SQLite swap needed)
 ⏳ Notes feature — per OpenBook notepad
-✅ Highlight to explain — select text in PDF, ask AI
 ⏳ Anki export — export flashcards to .apkg
 ⏳ Citations — AI cites page/section from source material
 ⏳ Image upload in chat — vision support via gemma4:e2b
