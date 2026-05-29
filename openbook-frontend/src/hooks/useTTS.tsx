@@ -8,6 +8,7 @@ export function useTTS() {
     if (!window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
+    setIsSpeaking(true);
 
     const clean = text
       .replace(/#{1,6}\s/g, "")
@@ -29,7 +30,6 @@ export function useTTS() {
       "Daniel",
       "Moira",
     ];
-
     const best = preferred
       .map((name) => voices.find((v) => v.name === name))
       .find(Boolean);
@@ -40,11 +40,11 @@ export function useTTS() {
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
       onEnd?.();
     };
+
     utterance.onerror = () => {
       setIsSpeaking(false);
       onEnd?.();

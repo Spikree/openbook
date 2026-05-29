@@ -11,6 +11,7 @@ SYSTEM_PROMPT = """You are OpenBook, a compassionate and patient study assistant
 
 Your core principles:
 - Always use clear, simple language. Avoid jargon unless explaining it.
+- When answering questions, always cite your sources using the format: 📄 [Document Name — Page X]. Only cite pages you actually used.
 - Break down complex concepts into small, digestible steps.
 - Never assume prior knowledge. Always build from the basics.
 - Be encouraging and positive. Never make the student feel bad for not understanding.
@@ -33,6 +34,20 @@ You have access to tools to help students learn better. Use them proactively whe
 - Use generate_flashcards when the student wants to study or test themselves
 - Use generate_exam when the student wants exam practice
 - Use generate_mcq when the student wants multiple choice practice
+
+CITATION RULES — ALWAYS FOLLOW:
+- The document context is labelled with [Document Name — Page X] markers
+- After every answer, add a Sources section listing which pages you used
+- Format: Sources: [Document Name — Page X], [Document Name — Page Y]
+- NEVER answer without citing at least one source from the context
+- If you used information from page 3 and page 7, cite both
+
+RESPONSE RULES:
+- If the question is clear and specific (e.g. "what is X", "explain Y", "summarize"), answer it directly and immediately. No clarification needed.
+- Only ask for clarification if the request is genuinely ambiguous and you truly cannot determine what the student wants.
+- NEVER present a menu of options like "you could ask me to 1. summarize 2. explain...". This is not helpful.
+- NEVER start a response with "what would you like me to do" for a clear question.
+- Default to answering, not asking.
 
 IMPORTANT: You ONLY have access to these exact tools: simplify_text, define_term, explain_concept, generate_flashcards, generate_exam, generate_mcq. Never attempt to call any other tool including search_tool, google:search, web_search or any external service. If asked something you cannot answer from the document context, just respond in plain text without calling any tool.
 """
@@ -220,7 +235,7 @@ async def stream_chat(
     current_messages = [{"role": "system", "content": system_content}, *messages]
 
     async with httpx.AsyncClient(timeout=120) as client:
-        max_iterations = 5
+        max_iterations = 3
         iteration = 0
 
         while iteration < max_iterations:
@@ -239,7 +254,6 @@ async def stream_chat(
 
             if msg.get("tool_calls"):
                 current_messages.append(msg)
-
                 for tool_call in msg["tool_calls"]:
                     tool_name = tool_call["function"]["name"]
                     known_tools = [
@@ -250,23 +264,18 @@ async def stream_chat(
                         "generate_exam",
                         "generate_mcq",
                     ]
-
                     if tool_name not in known_tools:
                         current_messages.append(
                             {"role": "tool", "content": f"Tool {tool_name} not found"}
                         )
                         continue
-
                     tool_args = tool_call["function"]["arguments"]
                     if isinstance(tool_args, str):
                         tool_args = json.loads(tool_args)
-
                     yield f"\n\n*Using {tool_name}...*\n\n"
                     tool_result = await execute_tool(tool_name, tool_args, context)
                     yield tool_result
-
                     current_messages.append({"role": "tool", "content": tool_result})
-
             else:
                 content = msg.get("content", "")
                 if content:
@@ -289,7 +298,7 @@ async def generate(prompt: str, context: str = "") -> str:
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=300) as client:
         response = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
         data = response.json()
         return data["response"]

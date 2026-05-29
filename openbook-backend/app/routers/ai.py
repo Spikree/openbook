@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import get_db
-from app.models.schemas import Document, Flashcard, Message, Summary
+from app.models.schemas import Chunk, Document, Flashcard, Message, Summary
 from app.services.ollama_service import generate, stream_chat
 
 router = APIRouter()
@@ -30,11 +30,32 @@ class GenerateRequest(BaseModel):
 async def get_context(document_ids: list[str], db: AsyncSession) -> str:
     if not document_ids:
         return ""
-    result = await db.execute(select(Document).where(Document.id.in_(document_ids)))
-    docs = result.scalars().all()
+
+    result = await db.execute(
+        select(Chunk)
+        .where(Chunk.document_id.in_(document_ids))
+        .order_by(Chunk.document_id, Chunk.page_number)
+    )
+    chunks = result.scalars().all()
+
+    if not chunks:
+        # fallback to full document text if no chunks
+        result = await db.execute(select(Document).where(Document.id.in_(document_ids)))
+        docs = result.scalars().all()
+        context = ""
+        for doc in docs:
+            context += f"\n--- {doc.name} ---\n{doc.content}\n"
+        return context.strip()
+
+    # get document names
+    doc_result = await db.execute(select(Document).where(Document.id.in_(document_ids)))
+    docs = {d.id: d.name for d in doc_result.scalars().all()}
+
     context = ""
-    for doc in docs:
-        context += f"\n--- {doc.name} ---\n{doc.content}\n"
+    for chunk in chunks:
+        doc_name = docs.get(chunk.document_id, "Unknown Document")
+        context += f"\n[{doc_name} — Page {chunk.page_number}]\n{chunk.content}\n"
+
     return context.strip()
 
 

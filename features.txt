@@ -15,16 +15,14 @@
 ✅ Highlight to explain — select text in PDF, ask AI
 ✅ the exams should have user input where they answer all the questions and the ai checks all of them in the end
 ✅ README
+✅ Text to speech — read documents aloud
 
+⏳ Notes feature — per OpenBook notepad
 ⏳ Settings model/URL taking effect on backend
 ⏳ Electron app with bundled backend (SQLite swap needed)
-⏳ Notes feature — per OpenBook notepad
 ⏳ Anki export — export flashcards to .apkg
 ⏳ Citations — AI cites page/section from source material
 ⏳ Image upload in chat — vision support via gemma4:e2b
-⏳ Audio explanation — listen to AI explanations
-⏳ Text to speech — read documents aloud
-⏳ Ollama model/URL from settings applied to backend requests
 ⏳ Delete OpenBook from navbar/reader view
 ⏳ Rename OpenBook
 ⏳ Loading states and error handling polish

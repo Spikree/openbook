@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import get_db
-from app.models.schemas import Document, OpenBook
-from app.services.pdf_service import extract_text, save_upload
+from app.models.schemas import Chunk, Document, OpenBook
+from app.services.pdf_service import extract_pages, extract_text, save_upload
 
 router = APIRouter()
 
@@ -30,7 +30,6 @@ class DocumentResponse(BaseModel):
 async def upload_document(
     openbook_id: str, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
-    # check openbook exists
     result = await db.execute(select(OpenBook).where(OpenBook.id == openbook_id))
     openbook = result.scalar_one_or_none()
     if not openbook:
@@ -43,6 +42,7 @@ async def upload_document(
     file_id, file_path = save_upload(file_bytes, file.filename)
 
     content = extract_text(file_path)
+    pages = extract_pages(file_path)
 
     doc = Document(
         id=file_id,
@@ -55,6 +55,18 @@ async def upload_document(
     )
 
     db.add(doc)
+    await db.flush()
+
+    for page in pages:
+        chunk = Chunk(
+            id=str(uuid4()),
+            document_id=file_id,
+            openbook_id=openbook_id,
+            page_number=page["page_number"],
+            content=page["content"],
+        )
+        db.add(chunk)
+
     await db.commit()
     await db.refresh(doc)
     return doc

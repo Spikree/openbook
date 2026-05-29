@@ -138,30 +138,6 @@ OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 ```
 
----
-
-## Project Structure
-openbook/
-├── docker-compose.yml
-├── openbook-frontend/          # React + TypeScript + Tailwind
-│   ├── src/
-│   │   ├── api/                # API client
-│   │   ├── components/         # UI components
-│   │   ├── hooks/              # Custom hooks
-│   │   ├── routes/             # TanStack Router pages
-│   │   ├── store/              # Zustand stores
-│   │   └── types/              # TypeScript types
-│   └── Dockerfile
-└── openbook-backend/           # FastAPI + PostgreSQL
-├── app/
-│   ├── models/             # SQLAlchemy models
-│   ├── routers/            # API routes
-│   └── services/           # Business logic
-├── alembic/                # Database migrations
-└── Dockerfile
-
----
-
 ## Tech Stack
 
 | Layer | Tech |

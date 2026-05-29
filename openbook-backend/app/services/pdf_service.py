@@ -16,6 +16,16 @@ def extract_text(file_path: str) -> str:
     return text.strip()
 
 
+def extract_pages(file_path: str) -> list[dict]:
+    pages = []
+    with pdfplumber.open(file_path) as pdf:
+        for i, page in enumerate(pdf.pages):
+            page_text = page.extract_text()
+            if page_text and page_text.strip():
+                pages.append({"page_number": i + 1, "content": page_text.strip()})
+    return pages
+
+
 def save_upload(file_bytes: bytes, filename: str) -> tuple[str, str]:
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     file_id = str(uuid4())

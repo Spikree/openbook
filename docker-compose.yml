@@ -24,6 +24,8 @@ services:
       UPLOADS_DIR: uploads
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: gemma4:e2b
+      # OLLAMA_MODEL: deepseek-r1:14b
+      # OLLAMA_MODEL: qwen2.5:14b
     volumes:
       - ./openbook-backend/uploads:/app/uploads
     depends_on:

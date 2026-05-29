@@ -39,6 +39,7 @@ class Document(Base):
     file_path = Column(String)  # path to stored PDF
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     is_selected = Column(Integer, default=1)
+    chunks = relationship("Chunk", back_populates="document", cascade="all, delete")
 
     openbook = relationship("OpenBook", back_populates="documents")
 
@@ -80,3 +81,15 @@ class Summary(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     openbook = relationship("OpenBook", back_populates="summaries")
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id = Column(String, primary_key=True)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    openbook_id = Column(String, ForeignKey("openbooks.id"), nullable=False)
+    page_number = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+
+    document = relationship("Document", back_populates="chunks")

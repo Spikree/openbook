@@ -9,6 +9,51 @@ export interface Message {
   createdAt: string;
 }
 
+export interface MarkingResult {
+  total_score: number;
+  max_score: number;
+  percentage: number;
+  results: {
+    question: string;
+    user_answer: string;
+    score: number;
+    max_score: number;
+    feedback: string;
+    what_you_got_right: string;
+    what_you_missed: string;
+  }[];
+}
+
+export interface ExamSession {
+  id: string;
+  questions: {
+    id: string;
+    question: string;
+    answer: string;
+    userAnswer: string;
+  }[];
+  result: MarkingResult | null;
+  createdAt: string;
+}
+
+export interface MCQSession {
+  id: string;
+  questions: {
+    id: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    selectedIndex: number | null;
+  }[];
+  createdAt: string;
+}
+
+export interface SummarySession {
+  id: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface OpenBookDocument {
   id: string;
   name: string;
@@ -42,6 +87,9 @@ export interface OpenBook {
   flashcards: Flashcard[];
   summaries: Summary[];
   selectedDocumentIds: string[];
+  examSessions: ExamSession[];
+  mcqSessions: MCQSession[];
+  summarySessions: SummarySession[];
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +101,13 @@ interface OpenBookStore {
   toggleDocumentSelection: (openBookId: string, docId: string) => void;
   selectAllDocuments: (openBookId: string) => void;
   clearActiveOpenBook: () => void;
+
+  addExamSession: (openBookId: string, session: ExamSession) => void;
+  addMCQSession: (openBookId: string, session: MCQSession) => void;
+  addSummarySession: (openBookId: string, session: SummarySession) => void;
+  removeExamSession: (openBookId: string, sessionId: string) => void;
+  removeMCQSession: (openBookId: string, sessionId: string) => void;
+  removeSummarySession: (openBookId: string, sessionId: string) => void;
 
   createOpenBook: (name: string, id?: string) => void;
   deleteOpenBook: (id: string) => void;
@@ -104,6 +159,9 @@ export const useOpenBookStore = create<OpenBookStore>()(
               conversations: [],
               flashcards: [],
               summaries: [],
+              examSessions: [],
+              mcqSessions: [],
+              summarySessions: [],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -208,6 +266,65 @@ export const useOpenBookStore = create<OpenBookStore>()(
           })),
         })),
 
+      removeSummary: (openBookId, summaryId) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            summaries: ob.summaries.filter((s) => s.id !== summaryId),
+            updatedAt: new Date().toISOString(),
+          })),
+        })),
+
+      addExamSession: (openBookId, session) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            examSessions: [...(ob.examSessions ?? []), session],
+          })),
+        })),
+
+      addMCQSession: (openBookId, session) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            mcqSessions: [...(ob.mcqSessions ?? []), session],
+          })),
+        })),
+
+      addSummarySession: (openBookId, session) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            summarySessions: [...(ob.summarySessions ?? []), session],
+          })),
+        })),
+
+      removeExamSession: (openBookId, sessionId) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            examSessions: ob.examSessions.filter((s) => s.id !== sessionId),
+          })),
+        })),
+
+      removeMCQSession: (openBookId, sessionId) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            mcqSessions: ob.mcqSessions.filter((s) => s.id !== sessionId),
+          })),
+        })),
+
+      removeSummarySession: (openBookId, sessionId) =>
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            summarySessions: ob.summarySessions.filter(
+              (s) => s.id !== sessionId,
+            ),
+          })),
+        })),
+
       loadOpenBooks: async () => {
         const openBooks = await api.getOpenBooks();
         const fullBooks = await Promise.all(
@@ -229,21 +346,15 @@ export const useOpenBookStore = create<OpenBookStore>()(
             conversations: [],
             flashcards: [],
             summaries: [],
+            examSessions: [],
+            mcqSessions: [],
+            summarySessions: [],
             createdAt: ob.created_at,
             updatedAt: ob.updated_at,
           };
         });
         set({ openBooks: record });
       },
-
-      removeSummary: (openBookId, summaryId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            summaries: ob.summaries.filter((s) => s.id !== summaryId),
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
 
       clearActiveOpenBook: () => set({ activeOpenBookId: null }),
     }),
