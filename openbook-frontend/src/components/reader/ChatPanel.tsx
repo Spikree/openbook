@@ -3,14 +3,7 @@ import { useUIStore } from "@/store/uiStore";
 import type { OpenBook } from "@/store/openBookStore";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
-import {
-  SendHorizonal,
-  Bot,
-  User,
-  Trash2,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { SendHorizonal, Bot, Trash2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
@@ -130,7 +123,6 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {openBook.conversations.length === 0 && !streamingContent ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-            <Bot className="w-8 h-8 opacity-20" />
             <p className="text-sm">Ask anything about your documents</p>
             <p className="text-xs opacity-60">
               Select text anywhere to explain, simplify or define
@@ -146,11 +138,11 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
                   msg.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
-                {msg.role === "assistant" && (
+                {/*{msg.role === "assistant" && (
                   <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                     <Bot className="w-3.5 h-3.5 text-primary" />
                   </div>
-                )}
+                )}*/}
 
                 {msg.role === "assistant" ? (
                   <div className="flex flex-col gap-1 max-w-[80%]">
@@ -182,11 +174,11 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
                   </div>
                 )}
 
-                {msg.role === "user" && (
+                {/*{msg.role === "user" && (
                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
                     <User className="w-3.5 h-3.5 text-muted-foreground" />
                   </div>
-                )}
+                )}*/}
               </div>
             ))}
 

@@ -125,6 +125,10 @@ interface OpenBookStore {
 
   addSummary: (openBookId: string, summary: Summary) => void;
   removeSummary: (openBookId: string, summaryId: string) => void;
+
+  generateFlashcards: (openBookId: string) => Promise<void>;
+  generateExam: (openBookId: string) => Promise<void>;
+  generateMCQ: (openBookId: string) => Promise<void>;
 }
 
 const updateBook = (
@@ -142,7 +146,7 @@ const updateBook = (
 
 export const useOpenBookStore = create<OpenBookStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       openBooks: {},
       activeOpenBookId: null,
 
@@ -324,6 +328,109 @@ export const useOpenBookStore = create<OpenBookStore>()(
             ),
           })),
         })),
+
+      generateFlashcards: async (openBookId) => {
+        const book = get().openBooks[openBookId];
+        if (!book) return;
+        const data = await api.generateFlashcards(
+          openBookId,
+          book.selectedDocumentIds,
+        );
+        const cards: Flashcard[] = data.flashcards.map(
+          (card: {
+            front?: string;
+            back?: string;
+            question?: string;
+            answer?: string;
+          }) => ({
+            id: crypto.randomUUID(),
+            front: card.front ?? card.question ?? "",
+            back: card.back ?? card.answer ?? "",
+            interval: 1,
+            easeFactor: 2.5,
+            dueDate: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          }),
+        );
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            flashcards: [...ob.flashcards, ...cards],
+            updatedAt: new Date().toISOString(),
+          })),
+        }));
+      },
+
+      generateExam: async (openBookId) => {
+        const book = get().openBooks[openBookId];
+        if (!book) throw new Error("OpenBook not found");
+        const data = await api.generateExam(
+          openBookId,
+          book.selectedDocumentIds,
+        );
+        const session: ExamSession = {
+          id: crypto.randomUUID(),
+          questions: data.questions.map(
+            (q: { question: string; answer: string }) => ({
+              id: crypto.randomUUID(),
+              question: q.question,
+              answer: q.answer,
+              userAnswer: "",
+            }),
+          ),
+          result: null,
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            examSessions: [...(ob.examSessions ?? []), session],
+          })),
+        }));
+      },
+
+      generateMCQ: async (openBookId) => {
+        const book = get().openBooks[openBookId];
+        if (!book) throw new Error("OpenBook not found");
+        const data = await api.generateMCQ(
+          openBookId,
+          book.selectedDocumentIds,
+        );
+        const session: MCQSession = {
+          id: crypto.randomUUID(),
+          questions: data.questions.map(
+            (q: {
+              question: string;
+              options: string[];
+              correct_index?: number;
+              answer?: string;
+            }) => {
+              let correctIndex = q.correct_index ?? 0;
+              if (q.answer && q.correct_index === undefined) {
+                const found = q.options.findIndex(
+                  (o) =>
+                    o.toLowerCase().trim() === q.answer!.toLowerCase().trim(),
+                );
+                if (found !== -1) correctIndex = found;
+              }
+              return {
+                id: crypto.randomUUID(),
+                question: q.question,
+                options: q.options,
+                correctIndex,
+                selectedIndex: null,
+              };
+            },
+          ),
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            mcqSessions: [...(ob.mcqSessions ?? []), session],
+          })),
+        }));
+      },
 
       loadOpenBooks: async () => {
         const openBooks = await api.getOpenBooks();

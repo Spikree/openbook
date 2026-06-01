@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useOpenBookStore } from "@/store/openBookStore";
-import type { ExamSession, MCQSession, Flashcard } from "@/store/openBookStore";
+import { useUIStore } from "@/store/uiStore";
 import { Separator } from "@/components/ui/separator";
 import {
   Brain,
@@ -10,31 +10,27 @@ import {
   Trash2,
   Sparkles,
 } from "lucide-react";
-import { api } from "@/api/client";
-import { FlashcardsDialog } from "../flashcards/FlashcardsDialog";
+import { FlashcardsDialog } from "@/components/flashcards/FlashcardsDialog";
 import { ExamDialog } from "@/components/flashcards/ExamDialog";
 import { MCQDialog } from "@/components/flashcards/MCQDialog";
 
-type ActiveDialog = ExamSession | MCQSession | Flashcard;
+type GenerateType = "flashcards" | "exam" | "mcq";
 
 export function RightSidebar() {
   const {
     openBooks,
     activeOpenBookId,
-    addFlashcard,
-    addExamSession,
-    addMCQSession,
     removeExamSession,
     removeMCQSession,
     removeFlashcard,
+    generateFlashcards,
+    generateExam,
+    generateMCQ,
   } = useOpenBookStore();
+  const { setActiveDialog } = useUIStore();
 
   const activeOpenBook = openBooks[activeOpenBookId ?? ""];
-  const [isGenerating, setIsGenerating] = useState<string | null>(null);
-  const [activeDialog, setActiveDialog] = useState<{
-    type: "flashcards" | "exam" | "mcq";
-    data: ActiveDialog;
-  } | null>(null);
+  const [isGenerating, setIsGenerating] = useState<GenerateType | null>(null);
 
   if (!activeOpenBook) {
     return (
@@ -50,89 +46,30 @@ export function RightSidebar() {
     activeOpenBook.selectedDocumentIds.includes(d.id),
   );
 
-  const handleGenerate = async (type: "flashcards" | "exam" | "mcq") => {
+  const handleGenerate = async (type: GenerateType) => {
     if (selectedDocs.length === 0 || isGenerating) return;
     setIsGenerating(type);
 
     try {
       if (type === "flashcards") {
-        const data = await api.generateFlashcards(
-          activeOpenBook.id,
-          activeOpenBook.selectedDocumentIds,
-        );
-        const cards = data.flashcards.map(
-          (card: {
-            front?: string;
-            back?: string;
-            question?: string;
-            answer?: string;
-          }) => ({
-            id: crypto.randomUUID(),
-            front: card.front ?? card.question ?? "",
-            back: card.back ?? card.answer ?? "",
-            interval: 1,
-            easeFactor: 2.5,
-            dueDate: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          }),
-        );
-        cards.forEach((card: any) => addFlashcard(activeOpenBook.id, card));
-        setActiveDialog({ type: "flashcards", data: cards });
+        await generateFlashcards(activeOpenBook.id);
+        setActiveDialog({ type: "flashcards" });
       } else if (type === "exam") {
-        const data = await api.generateExam(
-          activeOpenBook.id,
-          activeOpenBook.selectedDocumentIds,
-        );
-        const session: ExamSession = {
-          id: crypto.randomUUID(),
-          questions: data.questions.map(
-            (q: { question: string; answer: string }) => ({
-              id: crypto.randomUUID(),
-              question: q.question,
-              answer: q.answer,
-              userAnswer: "",
-            }),
-          ),
-          result: null,
-          createdAt: new Date().toISOString(),
-        };
-        addExamSession(activeOpenBook.id, session);
-        setActiveDialog({ type: "exam", data: session });
+        await generateExam(activeOpenBook.id);
+        const sessions =
+          useOpenBookStore.getState().openBooks[activeOpenBook.id].examSessions;
+        setActiveDialog({
+          type: "exam",
+          sessionId: sessions[sessions.length - 1].id,
+        });
       } else if (type === "mcq") {
-        const data = await api.generateMCQ(
-          activeOpenBook.id,
-          activeOpenBook.selectedDocumentIds,
-        );
-        const session: MCQSession = {
-          id: crypto.randomUUID(),
-          questions: data.questions.map(
-            (q: {
-              question: string;
-              options: string[];
-              correct_index?: number;
-              answer?: string;
-            }) => {
-              let correctIndex = q.correct_index ?? 0;
-              if (q.answer && q.correct_index === undefined) {
-                const found = q.options.findIndex(
-                  (o) =>
-                    o.toLowerCase().trim() === q.answer!.toLowerCase().trim(),
-                );
-                if (found !== -1) correctIndex = found;
-              }
-              return {
-                id: crypto.randomUUID(),
-                question: q.question,
-                options: q.options,
-                correctIndex,
-                selectedIndex: null,
-              };
-            },
-          ),
-          createdAt: new Date().toISOString(),
-        };
-        addMCQSession(activeOpenBook.id, session);
-        setActiveDialog({ type: "mcq", data: session });
+        await generateMCQ(activeOpenBook.id);
+        const sessions =
+          useOpenBookStore.getState().openBooks[activeOpenBook.id].mcqSessions;
+        setActiveDialog({
+          type: "mcq",
+          sessionId: sessions[sessions.length - 1].id,
+        });
       }
     } catch (err) {
       console.error(err);
@@ -147,11 +84,7 @@ export function RightSidebar() {
     { type: "mcq" as const, label: "Generate MCQ", icon: CircleDot },
   ];
 
-  const typeIcon = {
-    flashcards: Brain,
-    exam: GraduationCap,
-    mcq: CircleDot,
-  };
+  const typeIcon = { flashcards: Brain, exam: GraduationCap, mcq: CircleDot };
 
   const allHistory = [
     ...(activeOpenBook.flashcards.length > 0
@@ -161,7 +94,6 @@ export function RightSidebar() {
             id: "flashcards",
             label: `Flashcards (${activeOpenBook.flashcards.length} cards)`,
             createdAt: activeOpenBook.flashcards[0]?.createdAt,
-            data: activeOpenBook.flashcards,
           },
         ]
       : []),
@@ -170,14 +102,12 @@ export function RightSidebar() {
       id: s.id,
       label: `Exam (${s.questions.length} questions)`,
       createdAt: s.createdAt,
-      data: s,
     })),
     ...(activeOpenBook.mcqSessions ?? []).map((s) => ({
       type: "mcq" as const,
       id: s.id,
       label: `MCQ (${s.questions.length} questions)`,
       createdAt: s.createdAt,
-      data: s,
     })),
   ].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -185,7 +115,6 @@ export function RightSidebar() {
 
   return (
     <div className="h-full w-full border-l border-border flex flex-col overflow-hidden">
-      {/* Upper half — actions */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           Generate
@@ -219,7 +148,6 @@ export function RightSidebar() {
 
       <Separator />
 
-      {/* Lower half — history */}
       <div className="flex-1 p-3 overflow-y-auto">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           This Session
@@ -241,9 +169,14 @@ export function RightSidebar() {
                 >
                   <button
                     className="flex items-center gap-3 flex-1 text-left min-w-0"
-                    onClick={() =>
-                      setActiveDialog({ type: item.type, data: item.data })
-                    }
+                    onClick={() => {
+                      if (item.type === "flashcards")
+                        setActiveDialog({ type: "flashcards" });
+                      else if (item.type === "exam")
+                        setActiveDialog({ type: "exam", sessionId: item.id });
+                      else if (item.type === "mcq")
+                        setActiveDialog({ type: "mcq", sessionId: item.id });
+                    }}
                   >
                     <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -281,31 +214,9 @@ export function RightSidebar() {
         )}
       </div>
 
-      {/* Dialogs */}
-      {activeDialog?.type === "flashcards" && (
-        <FlashcardsDialog
-          open={true}
-          onOpenChange={() => setActiveDialog(null)}
-          flashcards={activeDialog.data}
-          openBookId={activeOpenBook.id}
-        />
-      )}
-      {activeDialog?.type === "exam" && (
-        <ExamDialog
-          open={true}
-          onOpenChange={() => setActiveDialog(null)}
-          session={activeDialog.data}
-          openBookId={activeOpenBook.id}
-        />
-      )}
-      {activeDialog?.type === "mcq" && (
-        <MCQDialog
-          open={true}
-          onOpenChange={() => setActiveDialog(null)}
-          session={activeDialog.data}
-          openBookId={activeOpenBook.id}
-        />
-      )}
+      <FlashcardsDialog />
+      <ExamDialog openBookId={activeOpenBook.id} />
+      <MCQDialog openBookId={activeOpenBook.id} />
     </div>
   );
 }
