@@ -1,5 +1,6 @@
 import json
 import os
+from operator import mod
 from typing import AsyncGenerator
 
 import httpx
@@ -227,7 +228,17 @@ async def execute_tool(tool_name: str, tool_args: dict, context: str) -> str:
 async def stream_chat(
     messages: list[dict],
     context: str = "",
+    ollama_url: str | None = None,
+    ollama_model: str | None = None,
 ) -> AsyncGenerator[str, None]:
+
+    url = ollama_url or OLLAMA_URL
+    if "localhost" in url or "127.0.0.1" in url:
+        url = url.replace("localhost", "host.docker.internal").replace(
+            "127.0.0.1", "host.docker.internal"
+        )
+    model = ollama_model or OLLAMA_MODEL
+
     system_content = SYSTEM_PROMPT
     if context:
         system_content += f"\n\nDOCUMENT CONTEXT:\n{context}"
@@ -242,7 +253,7 @@ async def stream_chat(
             iteration += 1
 
             payload = {
-                "model": OLLAMA_MODEL,
+                "model": model,
                 "messages": current_messages,
                 "tools": TOOLS,
                 "stream": False,
@@ -251,7 +262,7 @@ async def stream_chat(
                 },
             }
 
-            response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+            response = await client.post(f"{url}/api/chat", json=payload)
             data = response.json()
             msg = data.get("message", {})
 
@@ -288,7 +299,20 @@ async def stream_chat(
                 break
 
 
-async def generate(prompt: str, context: str = "") -> str:
+async def generate(
+    prompt: str,
+    context: str = "",
+    ollama_url: str | None = None,
+    ollama_model: str | None = None,
+) -> str:
+
+    url = ollama_url or OLLAMA_URL
+    if "localhost" in url or "127.0.0.1" in url:
+        url = url.replace("localhost", "host.docker.internal").replace(
+            "127.0.0.1", "host.docker.internal"
+        )
+    model = ollama_model or OLLAMA_MODEL
+
     system_content = SYSTEM_PROMPT
     if context:
         system_content += f"\n\nDOCUMENT CONTEXT:\n{context}"
@@ -296,7 +320,7 @@ async def generate(prompt: str, context: str = "") -> str:
     full_prompt = f"{system_content}\n\nTASK:\n{prompt}\n\nRespond only with the requested content, no preamble."
 
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": model,
         "prompt": full_prompt,
         "stream": False,
         "options": {
@@ -305,6 +329,6 @@ async def generate(prompt: str, context: str = "") -> str:
     }
 
     async with httpx.AsyncClient(timeout=300) as client:
-        response = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
+        response = await client.post(f"{url}/api/generate", json=payload)
         data = response.json()
         return data["response"]

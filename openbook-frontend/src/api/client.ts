@@ -1,6 +1,13 @@
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 // const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+import { useSettingsStore } from "@/store/settingsStore";
+
+const getOllamaConfig = () => {
+  const { ollamaUrl, ollamaModel } = useSettingsStore.getState();
+  return { ollama_url: ollamaUrl, ollama_model: ollamaModel };
+};
+
 export const api = {
   // OpenBooks
   createOpenBook: async (name: string) => {
@@ -70,6 +77,7 @@ export const api = {
       body: JSON.stringify({
         openbook_id: openBookId,
         selected_document_ids: selectedDocumentIds,
+        ...getOllamaConfig(),
       }),
     });
     if (!res.ok) throw new Error("Failed to generate summary");
@@ -86,6 +94,7 @@ export const api = {
       body: JSON.stringify({
         openbook_id: openBookId,
         selected_document_ids: selectedDocumentIds,
+        ...getOllamaConfig(),
       }),
     });
     if (!res.ok) throw new Error("Failed to generate flashcards");
@@ -99,6 +108,7 @@ export const api = {
       body: JSON.stringify({
         openbook_id: openBookId,
         selected_document_ids: selectedDocumentIds,
+        ...getOllamaConfig(),
       }),
     });
     if (!res.ok) throw new Error("Failed to generate exam");
@@ -112,6 +122,7 @@ export const api = {
       body: JSON.stringify({
         openbook_id: openBookId,
         selected_document_ids: selectedDocumentIds,
+        ...getOllamaConfig(),
       }),
     });
     if (!res.ok) throw new Error("Failed to generate MCQ");
@@ -134,6 +145,7 @@ export const api = {
         message,
         selected_document_ids: selectedDocumentIds,
         conversation_history: conversationHistory,
+        ...getOllamaConfig(),
       }),
     });
 
@@ -172,6 +184,7 @@ export const api = {
       body: JSON.stringify({
         openbook_id: openBookId,
         questions_and_answers: questionsAndAnswers,
+        ...getOllamaConfig(),
       }),
     });
     if (!res.ok) throw new Error("Failed to mark exam");
@@ -217,4 +230,10 @@ export const api = {
   },
 
   downloadNoteUrl: (noteId: string) => `${BASE_URL}/notes/${noteId}/download`,
+
+  getModels: async () => {
+    const res = await fetch(`${BASE_URL}/ai/models`);
+    if (!res.ok) throw new Error("Failed to fetch models");
+    return res.json();
+  },
 };

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   Heart,
   ExternalLink,
 } from "lucide-react";
+import { api } from "@/api/client";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -38,9 +40,26 @@ export function SettingsSheet({ open, onOpenChange }: SettingsDialogProps) {
     toggleReadingRuler,
   } = useSettingsStore();
 
+  const [availableModels, setAvailableModels] = useState<{ name: string }[]>(
+    [],
+  );
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setModelsLoading(true);
+    setModelsError(null);
+    api
+      .getModels()
+      .then((data) => setAvailableModels(data.models))
+      .catch((err) => setModelsError(err.message))
+      .finally(() => setModelsLoading(false));
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -74,14 +93,30 @@ export function SettingsSheet({ open, onOpenChange }: SettingsDialogProps) {
                 <label className="text-xs font-medium text-foreground">
                   Model
                 </label>
-                <input
-                  type="text"
-                  value={ollamaModel}
-                  onChange={(e) => setOllamaModel(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                {modelsLoading ? (
+                  <p className="text-xs text-muted-foreground">
+                    Loading models...
+                  </p>
+                ) : modelsError ? (
+                  <p className="text-xs text-destructive">{modelsError}</p>
+                ) : (
+                  <select
+                    value={ollamaModel}
+                    onChange={(e) => setOllamaModel(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {availableModels.length === 0 && (
+                      <option>No models found</option>
+                    )}
+                    {availableModels.map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  e.g. llama3.2, gemma4:e2b, mistral
+                  Models installed on your Ollama instance
                 </p>
               </div>
             </div>

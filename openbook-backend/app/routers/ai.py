@@ -1,7 +1,9 @@
 import json
+import os
 from datetime import datetime
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -20,11 +22,15 @@ class ChatRequest(BaseModel):
     message: str
     selected_document_ids: list[str]
     conversation_history: list[dict]
+    ollama_url: str | None = None
+    ollama_model: str | None = None
 
 
 class GenerateRequest(BaseModel):
     openbook_id: str
     selected_document_ids: list[str]
+    ollama_url: str | None = None
+    ollama_model: str | None = None
 
 
 async def get_context(document_ids: list[str], db: AsyncSession) -> str:
@@ -69,7 +75,12 @@ async def chat(body: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     async def event_stream():
         full_response = ""
-        async for chunk in stream_chat(messages, context):
+        async for chunk in stream_chat(
+            messages,
+            context,
+            ollama_url=body.ollama_url,
+            ollama_model=body.ollama_model,
+        ):
             full_response += chunk
             yield f"data: {json.dumps({'chunk': chunk})}\n\n"
         yield f"data: {json.dumps({'done': True, 'full': full_response})}\n\n"
@@ -90,7 +101,12 @@ Structure it with:
 - Important Details
 - Conclusion"""
 
-    summary = await generate(prompt, context)
+    summary = await generate(
+        prompt,
+        context,
+        ollama_url=body.ollama_url,
+        ollama_model=body.ollama_model,
+    )
     return {"summary": summary}
 
 
@@ -109,7 +125,12 @@ Return ONLY a JSON array in this exact format, no other text, no markdown, no ba
 ]
 Never use "question" or "answer" as keys, always use "front" and "back"."""
 
-    response = await generate(prompt, context)
+    response = await generate(
+        prompt,
+        context,
+        ollama_url=body.ollama_url,
+        ollama_model=body.ollama_model,
+    )
 
     try:
         # try direct parse first
@@ -146,7 +167,12 @@ Return ONLY a JSON array in this exact format, no other text:
   ...
 ]"""
 
-    response = await generate(prompt, context)
+    response = await generate(
+        prompt,
+        context,
+        ollama_url=body.ollama_url,
+        ollama_model=body.ollama_model,
+    )
     try:
         questions = json.loads(response)
     except json.JSONDecodeError:
@@ -180,7 +206,12 @@ async def generate_mcq(body: GenerateRequest, db: AsyncSession = Depends(get_db)
     ]
     The correct_index must be the integer index (0, 1, 2, or 3) of the correct option in the options array. Never use an "answer" field."""
 
-    response = await generate(prompt, context)
+    response = await generate(
+        prompt,
+        context,
+        ollama_url=body.ollama_url,
+        ollama_model=body.ollama_model,
+    )
     try:
         questions = json.loads(response)
     except json.JSONDecodeError:
@@ -229,7 +260,12 @@ Return ONLY a JSON object in this exact format, no other text:
   ]
 }}"""
 
-    response = await generate(prompt, "")
+    response = await generate(
+        prompt,
+        "",
+        ollama_url=body.ollama_url,
+        ollama_model=body.ollama_model,
+    )
 
     try:
         clean = response.strip().strip("```json").strip("```").strip()
@@ -246,3 +282,24 @@ Return ONLY a JSON object in this exact format, no other text:
             )
 
     return result
+
+
+@router.get("/models")
+async def get_models():
+    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{ollama_url}/api/tags")
+            data = response.json()
+            return {
+                "models": [
+                    {
+                        "name": m["name"],
+                        "size": m.get("size", 0),
+                        "modified_at": m.get("modified_at"),
+                    }
+                    for m in data.get("models", [])
+                ]
+            }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not reach Ollama: {str(e)}")
