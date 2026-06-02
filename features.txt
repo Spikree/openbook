@@ -16,12 +16,12 @@
 ✅ the exams should have user input where they answer all the questions and the ai checks all of them in the end
 ✅ README
 ✅ Text to speech — read documents aloud
+✅ Notes feature — per OpenBook notepad
+✅ Citations — AI cites page/section from source material
 
-⏳ Notes feature — per OpenBook notepad
+
 ⏳ Settings model/URL taking effect on backend
 ⏳ Electron app with bundled backend (SQLite swap needed)
-⏳ Anki export — export flashcards to .apkg
-⏳ Citations — AI cites page/section from source material
 ⏳ Image upload in chat — vision support via gemma4:e2b
 ⏳ Delete OpenBook from navbar/reader view
 ⏳ Rename OpenBook

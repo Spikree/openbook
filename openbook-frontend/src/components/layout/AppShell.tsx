@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { useRef, useState, useCallback } from "react";
 import { Navbar } from "./Navbar";
 import { LeftSidebar } from "./LeftSidebar";
@@ -11,6 +12,9 @@ export function AppShell({ children }: AppShellProps) {
   const [leftWidth, setLeftWidth] = useState(260);
   const [rightWidth, setRightWidth] = useState(280);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { location } = useRouterState();
+  const isReader = location.pathname === "/reader";
 
   const startLeftResize = useCallback(
     (e: React.MouseEvent) => {
@@ -63,35 +67,43 @@ export function AppShell({ children }: AppShellProps) {
       <Navbar />
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* Left sidebar */}
-        <div
-          style={{ width: leftWidth, minWidth: leftWidth }}
-          className="h-full overflow-hidden"
-        >
-          <LeftSidebar />
-        </div>
+        {isReader && (
+          <div
+            style={{ width: leftWidth, minWidth: leftWidth }}
+            className="h-full overflow-hidden"
+          >
+            <LeftSidebar />
+          </div>
+        )}
 
         {/* Left resize handle */}
-        <div
-          onMouseDown={startLeftResize}
-          className="w-1 bg-border hover:bg-primary transition-colors cursor-col-resize shrink-0"
-        />
+        {isReader && (
+          <div
+            onMouseDown={startLeftResize}
+            className="w-1 bg-border hover:bg-primary transition-colors cursor-col-resize shrink-0"
+          />
+        )}
 
         {/* Main content */}
         <div className="flex-1 h-full overflow-y-auto p-6">{children}</div>
 
         {/* Right resize handle */}
-        <div
-          onMouseDown={startRightResize}
-          className="w-1 bg-border hover:bg-primary transition-colors cursor-col-resize shrink-0"
-        />
+        {isReader && (
+          <div
+            onMouseDown={startRightResize}
+            className="w-1 bg-border hover:bg-primary transition-colors cursor-col-resize shrink-0"
+          />
+        )}
 
         {/* Right sidebar */}
-        <div
-          style={{ width: rightWidth, minWidth: rightWidth }}
-          className="h-full overflow-hidden"
-        >
-          <RightSidebar />
-        </div>
+        {isReader && (
+          <div
+            style={{ width: rightWidth, minWidth: rightWidth }}
+            className="h-full overflow-hidden"
+          >
+            <RightSidebar />
+          </div>
+        )}
       </div>
     </div>
   );
