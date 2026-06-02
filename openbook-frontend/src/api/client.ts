@@ -177,4 +177,44 @@ export const api = {
     if (!res.ok) throw new Error("Failed to mark exam");
     return res.json();
   },
+
+  // Notes
+  createNote: async (openBookId: string, title: string) => {
+    const res = await fetch(`${BASE_URL}/notes/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ openbook_id: openBookId, title }),
+    });
+    if (!res.ok) throw new Error("Failed to create note");
+    return res.json();
+  },
+
+  getNotes: async (openBookId: string) => {
+    const res = await fetch(`${BASE_URL}/notes/${openBookId}`);
+    if (!res.ok) throw new Error("Failed to fetch notes");
+    return res.json();
+  },
+
+  updateNote: async (
+    noteId: string,
+    data: { title?: string; content?: string },
+  ) => {
+    const res = await fetch(`${BASE_URL}/notes/${noteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update note");
+    return res.json();
+  },
+
+  deleteNote: async (noteId: string) => {
+    const res = await fetch(`${BASE_URL}/notes/${noteId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete note");
+    return res.json();
+  },
+
+  downloadNoteUrl: (noteId: string) => `${BASE_URL}/notes/${noteId}/download`,
 };

@@ -56,6 +56,8 @@ async def get_context(document_ids: list[str], db: AsyncSession) -> str:
         doc_name = docs.get(chunk.document_id, "Unknown Document")
         context += f"\n[{doc_name} — Page {chunk.page_number}]\n{chunk.content}\n"
 
+    # debug print to check context overflow
+    # print(f"Context length: {len(context)} chars, ~{len(context) // 4} tokens")
     return context.strip()
 
 

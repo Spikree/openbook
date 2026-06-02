@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import ai, documents, health, openbooks
+from app.routers import ai, documents, health, notes, openbooks
 
 app = FastAPI(title="OpenBook API")
 
@@ -17,3 +17,4 @@ app.include_router(health.router)
 app.include_router(openbooks.router, prefix="/api/openbooks")
 app.include_router(documents.router, prefix="/api/documents")
 app.include_router(ai.router, prefix="/api/ai")
+app.include_router(notes.router, prefix="/api/notes")

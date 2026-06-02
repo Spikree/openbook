@@ -61,16 +61,25 @@ function Reader() {
             </TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
+        <TabsContent
+          value="chat"
+          forceMount
+          className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden"
+        >
           <ChatPanel openBook={activeOpenBook} />
         </TabsContent>
         <TabsContent
           value="summary"
-          className="flex-1 overflow-y-auto mt-0 p-4"
+          forceMount
+          className="flex-1 overflow-y-auto mt-0 p-4 data-[state=inactive]:hidden"
         >
           <SummaryPanel openBook={activeOpenBook} />
         </TabsContent>
-        <TabsContent value="pdf" className="flex-1 overflow-hidden mt-0">
+        <TabsContent
+          value="pdf"
+          forceMount
+          className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden"
+        >
           <PDFPanel openBook={activeOpenBook} />
         </TabsContent>
       </Tabs>

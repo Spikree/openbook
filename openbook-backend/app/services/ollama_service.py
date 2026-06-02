@@ -246,6 +246,9 @@ async def stream_chat(
                 "messages": current_messages,
                 "tools": TOOLS,
                 "stream": False,
+                "options": {
+                    "num_ctx": 16384,
+                },
             }
 
             response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
@@ -296,6 +299,9 @@ async def generate(prompt: str, context: str = "") -> str:
         "model": OLLAMA_MODEL,
         "prompt": full_prompt,
         "stream": False,
+        "options": {
+            "num_ctx": 16384,
+        },
     }
 
     async with httpx.AsyncClient(timeout=300) as client:

@@ -4,6 +4,7 @@ type ActiveDialog =
   | { type: "flashcards" }
   | { type: "exam"; sessionId: string }
   | { type: "mcq"; sessionId: string }
+  | { type: "note"; noteId: string | null }
   | null;
 
 interface UIStore {

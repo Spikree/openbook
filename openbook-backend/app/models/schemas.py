@@ -26,6 +26,7 @@ class OpenBook(Base):
     summaries = relationship(
         "Summary", back_populates="openbook", cascade="all, delete"
     )
+    notes = relationship("Note", back_populates="openbook", cascade="all, delete")
 
 
 class Document(Base):
@@ -93,3 +94,14 @@ class Chunk(Base):
     content = Column(Text, nullable=False)
 
     document = relationship("Document", back_populates="chunks")
+
+
+class Note(Base):
+    __tablename__ = "notes"
+    id = Column(String, primary_key=True)
+    openbook_id = Column(String, ForeignKey("openbooks.id"), nullable=False)
+    title = Column(String, nullable=False)
+    content = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    openbook = relationship("OpenBook", back_populates="notes")

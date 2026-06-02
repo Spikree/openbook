@@ -90,8 +90,18 @@ export interface OpenBook {
   examSessions: ExamSession[];
   mcqSessions: MCQSession[];
   summarySessions: SummarySession[];
+  notes: Note[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Note {
+  id: string;
+  openbook_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface OpenBookStore {
@@ -129,6 +139,15 @@ interface OpenBookStore {
   generateFlashcards: (openBookId: string) => Promise<void>;
   generateExam: (openBookId: string) => Promise<void>;
   generateMCQ: (openBookId: string) => Promise<void>;
+
+  createNote: (openBookId: string, title: string) => Promise<Note>;
+  updateNote: (
+    openBookId: string,
+    noteId: string,
+    data: { title?: string; content?: string },
+  ) => Promise<void>;
+  deleteNote: (openBookId: string, noteId: string) => Promise<void>;
+  loadNotes: (openBookId: string) => Promise<void>;
 }
 
 const updateBook = (
@@ -166,6 +185,7 @@ export const useOpenBookStore = create<OpenBookStore>()(
               examSessions: [],
               mcqSessions: [],
               summarySessions: [],
+              notes: [],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -437,8 +457,13 @@ export const useOpenBookStore = create<OpenBookStore>()(
         const fullBooks = await Promise.all(
           openBooks.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
         );
+
+        const notesByBook = await Promise.all(
+          openBooks.map((ob: { id: string }) => api.getNotes(ob.id)),
+        );
+
         const record: Record<string, OpenBook> = {};
-        fullBooks.forEach((ob: any) => {
+        fullBooks.forEach((ob: any, i: number) => {
           record[ob.id] = {
             id: ob.id,
             name: ob.name,
@@ -456,11 +481,53 @@ export const useOpenBookStore = create<OpenBookStore>()(
             examSessions: [],
             mcqSessions: [],
             summarySessions: [],
+            notes: notesByBook[i] ?? [],
             createdAt: ob.created_at,
             updatedAt: ob.updated_at,
           };
         });
         set({ openBooks: record });
+      },
+
+      createNote: async (openBookId, title) => {
+        const note = await api.createNote(openBookId, title);
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            notes: [note, ...(ob.notes ?? [])],
+          })),
+        }));
+        return note;
+      },
+
+      updateNote: async (openBookId, noteId, data) => {
+        const updated = await api.updateNote(noteId, data);
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            notes: (ob.notes ?? []).map((n) => (n.id === noteId ? updated : n)),
+          })),
+        }));
+      },
+
+      deleteNote: async (openBookId, noteId) => {
+        await api.deleteNote(noteId);
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            notes: (ob.notes ?? []).filter((n) => n.id !== noteId),
+          })),
+        }));
+      },
+
+      loadNotes: async (openBookId) => {
+        const notes = await api.getNotes(openBookId);
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+            ...ob,
+            notes,
+          })),
+        }));
       },
 
       clearActiveOpenBook: () => set({ activeOpenBookId: null }),

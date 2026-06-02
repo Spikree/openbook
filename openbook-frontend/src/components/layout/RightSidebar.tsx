@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { useUIStore } from "@/store/uiStore";
 import { Separator } from "@/components/ui/separator";
@@ -9,10 +9,12 @@ import {
   Clock,
   Trash2,
   Sparkles,
+  StickyNote,
 } from "lucide-react";
 import { FlashcardsDialog } from "@/components/flashcards/FlashcardsDialog";
 import { ExamDialog } from "@/components/flashcards/ExamDialog";
 import { MCQDialog } from "@/components/flashcards/MCQDialog";
+import { NoteEditor } from "@/components/notes/NoteEditor";
 
 type GenerateType = "flashcards" | "exam" | "mcq";
 
@@ -23,6 +25,8 @@ export function RightSidebar() {
     removeExamSession,
     removeMCQSession,
     removeFlashcard,
+    deleteNote,
+    loadNotes,
     generateFlashcards,
     generateExam,
     generateMCQ,
@@ -31,6 +35,10 @@ export function RightSidebar() {
 
   const activeOpenBook = openBooks[activeOpenBookId ?? ""];
   const [isGenerating, setIsGenerating] = useState<GenerateType | null>(null);
+
+  useEffect(() => {
+    if (activeOpenBookId) loadNotes(activeOpenBookId);
+  }, [activeOpenBookId]);
 
   if (!activeOpenBook) {
     return (
@@ -49,7 +57,6 @@ export function RightSidebar() {
   const handleGenerate = async (type: GenerateType) => {
     if (selectedDocs.length === 0 || isGenerating) return;
     setIsGenerating(type);
-
     try {
       if (type === "flashcards") {
         await generateFlashcards(activeOpenBook.id);
@@ -84,7 +91,12 @@ export function RightSidebar() {
     { type: "mcq" as const, label: "Generate MCQ", icon: CircleDot },
   ];
 
-  const typeIcon = { flashcards: Brain, exam: GraduationCap, mcq: CircleDot };
+  const typeIcon = {
+    flashcards: Brain,
+    exam: GraduationCap,
+    mcq: CircleDot,
+    note: StickyNote,
+  };
 
   const allHistory = [
     ...(activeOpenBook.flashcards.length > 0
@@ -109,12 +121,18 @@ export function RightSidebar() {
       label: `MCQ (${s.questions.length} questions)`,
       createdAt: s.createdAt,
     })),
+    ...(activeOpenBook.notes ?? []).map((n) => ({
+      type: "note" as const,
+      id: n.id,
+      label: n.title || "Untitled note",
+      createdAt: n.updated_at,
+    })),
   ].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   return (
-    <div className="h-full w-full border-l border-border flex flex-col overflow-hidden">
+    <div className="h-full w-full border-l border-border flex flex-col overflow-hidden relative">
       <div className="flex-1 p-3 space-y-2 overflow-y-auto">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           Generate
@@ -138,6 +156,16 @@ export function RightSidebar() {
             </span>
           </button>
         ))}
+
+        <button
+          onClick={() => setActiveDialog({ type: "note", noteId: null })}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left"
+        >
+          <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+            <StickyNote className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <span className="text-sm text-foreground">New Note</span>
+        </button>
 
         {selectedDocs.length === 0 && (
           <p className="text-xs text-muted-foreground text-center pt-2">
@@ -164,7 +192,7 @@ export function RightSidebar() {
               const Icon = typeIcon[item.type];
               return (
                 <div
-                  key={item.id}
+                  key={`${item.type}-${item.id}`}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
                 >
                   <button
@@ -176,6 +204,8 @@ export function RightSidebar() {
                         setActiveDialog({ type: "exam", sessionId: item.id });
                       else if (item.type === "mcq")
                         setActiveDialog({ type: "mcq", sessionId: item.id });
+                      else if (item.type === "note")
+                        setActiveDialog({ type: "note", noteId: item.id });
                     }}
                   >
                     <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -201,7 +231,8 @@ export function RightSidebar() {
                         activeOpenBook.flashcards.forEach((f) =>
                           removeFlashcard(activeOpenBook.id, f.id),
                         );
-                      }
+                      } else if (item.type === "note")
+                        deleteNote(activeOpenBook.id, item.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
                   >
@@ -217,6 +248,7 @@ export function RightSidebar() {
       <FlashcardsDialog />
       <ExamDialog openBookId={activeOpenBook.id} />
       <MCQDialog openBookId={activeOpenBook.id} />
+      <NoteEditor openBookId={activeOpenBook.id} />
     </div>
   );
 }
