@@ -40,6 +40,16 @@ export const api = {
     return res.json();
   },
 
+  renameOpenBook: async (id: string, name: string) => {
+    const res = await fetch(`${BASE_URL}/openbooks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error("Failed to rename OpenBook");
+    return res.json();
+  },
+
   // Documents
   uploadDocument: async (openBookId: string, file: File) => {
     const formData = new FormData();

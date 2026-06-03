@@ -16,6 +16,10 @@ class CreateOpenBookRequest(BaseModel):
     name: str
 
 
+class RenameRequest(BaseModel):
+    name: str
+
+
 class OpenBookResponse(BaseModel):
     id: str
     name: str
@@ -111,3 +115,17 @@ async def get_openbook_full(openbook_id: str, db: AsyncSession = Depends(get_db)
             for d in documents
         ],
     }
+
+
+@router.patch("/{openbook_id}")
+async def rename_openbook(
+    openbook_id: str, body: RenameRequest, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(OpenBook).where(OpenBook.id == openbook_id))
+    ob = result.scalar_one_or_none()
+    if not ob:
+        raise HTTPException(status_code=404, detail="OpenBook not found")
+    ob.name = body.name
+    await db.commit()
+    await db.refresh(ob)
+    return ob

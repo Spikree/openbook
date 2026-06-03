@@ -2,31 +2,70 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Trash2, FileText } from "lucide-react";
+import { BookOpen, Trash2, FileText, Pencil } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { api } from "@/api/client";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 function Home() {
-  const { openBooks, deleteOpenBook, setActiveOpenBook } = useOpenBookStore();
+  const { openBooks, deleteOpenBook, setActiveOpenBook, renameOpenBook } =
+    useOpenBookStore();
   const navigate = useNavigate();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
 
   const handleOpen = (id: string) => {
     setActiveOpenBook(id);
     navigate({ to: "/reader" });
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    setDeleteId(id);
+  };
+
+  const handleRenameClick = (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    setRenameId(id);
+    setNewName(name);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      await api.deleteOpenBook(id);
-      deleteOpenBook(id);
+      await api.deleteOpenBook(deleteId);
+      deleteOpenBook(deleteId);
     } catch (err) {
       console.error(err);
+    } finally {
+      setDeleteId(null);
     }
   };
+
+  const confirmRename = async () => {
+    if (!renameId || !newName.trim()) return;
+    try {
+      await renameOpenBook(renameId, newName.trim());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRenameId(null);
+      setNewName("");
+    }
+  };
+
+  const bookToDelete = deleteId ? openBooks[deleteId] : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -59,14 +98,24 @@ function Home() {
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={(e) => handleDelete(e, ob.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={(e) => handleRenameClick(e, ob.id, ob.name)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={(e) => handleDeleteClick(e, ob.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div>
                 <p className="font-medium text-foreground">{ob.name}</p>
@@ -85,6 +134,54 @@ function Home() {
           ))}
         </div>
       )}
+
+      <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete OpenBook?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will permanently delete{" "}
+            <span className="font-medium text-foreground">
+              "{bookToDelete?.name}"
+            </span>{" "}
+            and all its documents, notes, chat history, and generated content.
+            This cannot be undone.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!renameId} onOpenChange={(o) => !o && setRenameId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename OpenBook</DialogTitle>
+          </DialogHeader>
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && confirmRename()}
+            className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            autoFocus
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRenameId(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmRename} disabled={!newName.trim()}>
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

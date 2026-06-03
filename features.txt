@@ -19,8 +19,8 @@
 ✅ Notes feature — per OpenBook notepad
 ✅ Citations — AI cites page/section from source material
 ✅ Settings model/URL taking effect on backend
+✅ Image upload in chat — vision support via gemma4:e2b
 
-⏳ Image upload in chat — vision support via gemma4:e2b
 ⏳ Delete OpenBook from navbar/reader view
 ⏳ Rename OpenBook
 ⏳ Loading states and error handling polish

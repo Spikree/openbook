@@ -122,6 +122,7 @@ interface OpenBookStore {
 
   createOpenBook: (name: string, id?: string) => void;
   deleteOpenBook: (id: string) => void;
+  renameOpenBook: (id: string, name: string) => Promise<void>;
   setActiveOpenBook: (id: string) => void;
   loadOpenBooks: () => Promise<void>;
 
@@ -203,6 +204,17 @@ export const useOpenBookStore = create<OpenBookStore>()(
               state.activeOpenBookId === id ? null : state.activeOpenBookId,
           };
         }),
+
+      renameOpenBook: async (id, name) => {
+        await api.renameOpenBook(id, name);
+        set((state) => ({
+          openBooks: updateBook(state.openBooks, id, (ob) => ({
+            ...ob,
+            name,
+            updatedAt: new Date().toISOString(),
+          })),
+        }));
+      },
 
       setActiveOpenBook: (id) => set({ activeOpenBookId: id }),
 
