@@ -3,11 +3,19 @@ import { useUIStore } from "@/store/uiStore";
 import type { OpenBook } from "@/store/openBookStore";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, Bot, Trash2, Volume2, VolumeX } from "lucide-react";
+import {
+  SendHorizonal,
+  Bot,
+  Trash2,
+  Volume2,
+  VolumeX,
+  ImagePlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
 import { useTTS } from "@/hooks/useTTS";
+import { useSettingsStore } from "@/store/settingsStore";
 
 interface ChatPanelProps {
   openBook: OpenBook;
@@ -23,6 +31,11 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { speak, stop, isSpeaking } = useTTS();
 
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { selectedModelCapabilities } = useSettingsStore();
+  const canUseVision = selectedModelCapabilities.includes("vision");
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [openBook.conversations, streamingContent]);
@@ -37,17 +50,34 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // strip the data:image/png;base64, prefix
+      const base64 = result.split(",")[1];
+      setPendingImage(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim() || isLoading) return;
+    if ((!messageText.trim() && !pendingImage) || isLoading) return;
 
     const userMessage = {
       id: crypto.randomUUID(),
       role: "user" as const,
-      content: messageText.trim(),
+      content: messageText.trim() || "(image)",
       createdAt: new Date().toISOString(),
+      image: pendingImage ?? undefined,
     };
 
     addMessage(openBook.id, userMessage);
+    const imageToSend = pendingImage;
+    setPendingImage(null);
     setInput("");
     setIsLoading(true);
     setStreamingContent("");
@@ -61,9 +91,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
           role: m.role,
           content: m.content,
         })),
-        (chunk) => {
-          setStreamingContent((prev) => prev + chunk);
-        },
+        (chunk) => setStreamingContent((prev) => prev + chunk),
         (full) => {
           addMessage(openBook.id, {
             id: crypto.randomUUID(),
@@ -74,6 +102,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
           setStreamingContent("");
           setIsLoading(false);
         },
+        imageToSend ? [imageToSend] : undefined,
       );
     } catch (err) {
       console.error(err);
@@ -170,6 +199,13 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
                   </div>
                 ) : (
                   <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm bg-primary text-primary-foreground">
+                    {msg.image && (
+                      <img
+                        src={`data:image/png;base64,${msg.image}`}
+                        alt="user upload"
+                        className="rounded-md mb-2 max-w-full max-h-64 object-contain"
+                      />
+                    )}
                     {msg.content}
                   </div>
                 )}
@@ -216,7 +252,42 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       </div>
 
       <div className="shrink-0 p-4 border-t border-border">
+        {pendingImage && (
+          <div className="mb-2 flex items-center gap-2">
+            <img
+              src={`data:image/png;base64,${pendingImage}`}
+              alt="upload preview"
+              className="w-16 h-16 object-cover rounded-md border border-border"
+            />
+            <button
+              onClick={() => setPendingImage(null)}
+              className="text-xs text-muted-foreground hover:text-destructive"
+            >
+              Remove
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 items-end">
+          {canUseVision && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0"
+                disabled={isLoading}
+              >
+                <ImagePlus className="w-4 h-4" />
+              </Button>
+            </>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -235,7 +306,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
             size="icon"
             onClick={handleSend}
             disabled={
-              !input.trim() ||
+              (!input.trim() && !pendingImage) ||
               isLoading ||
               openBook.selectedDocumentIds.length === 0
             }

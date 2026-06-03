@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from typing import NotRequired, TypedDict
 from uuid import uuid4
 
 import httpx
@@ -17,6 +18,12 @@ from app.services.ollama_service import generate, stream_chat
 router = APIRouter()
 
 
+class UserMessage(TypedDict):
+    role: str
+    content: str
+    images: NotRequired[list[str]]
+
+
 class ChatRequest(BaseModel):
     openbook_id: str
     message: str
@@ -24,6 +31,7 @@ class ChatRequest(BaseModel):
     conversation_history: list[dict]
     ollama_url: str | None = None
     ollama_model: str | None = None
+    images: list[str] | None = None
 
 
 class GenerateRequest(BaseModel):
@@ -71,7 +79,11 @@ async def get_context(document_ids: list[str], db: AsyncSession) -> str:
 async def chat(body: ChatRequest, db: AsyncSession = Depends(get_db)):
     context = await get_context(body.selected_document_ids, db)
 
-    messages = [*body.conversation_history, {"role": "user", "content": body.message}]
+    user_message: UserMessage = {"role": "user", "content": body.message}
+    if body.images:
+        user_message["images"] = body.images
+
+    messages = [*body.conversation_history, user_message]
 
     async def event_stream():
         full_response = ""
@@ -291,15 +303,26 @@ async def get_models():
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(f"{ollama_url}/api/tags")
             data = response.json()
-            return {
-                "models": [
+
+            models = []
+            for m in data.get("models", []):
+                try:
+                    show = await client.post(
+                        f"{ollama_url}/api/show", json={"name": m["name"]}
+                    )
+                    show_data = show.json()
+                    capabilities = show_data.get("capabilities", [])
+                except Exception:
+                    capabilities = []
+
+                models.append(
                     {
                         "name": m["name"],
                         "size": m.get("size", 0),
                         "modified_at": m.get("modified_at"),
+                        "capabilities": capabilities,
                     }
-                    for m in data.get("models", [])
-                ]
-            }
+                )
+            return {"models": models}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Could not reach Ollama: {str(e)}")

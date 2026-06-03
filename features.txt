@@ -18,11 +18,10 @@
 ✅ Text to speech — read documents aloud
 ✅ Notes feature — per OpenBook notepad
 ✅ Citations — AI cites page/section from source material
+✅ Settings model/URL taking effect on backend
 
-
-⏳ Settings model/URL taking effect on backend
-⏳ Electron app with bundled backend (SQLite swap needed)
 ⏳ Image upload in chat — vision support via gemma4:e2b
 ⏳ Delete OpenBook from navbar/reader view
 ⏳ Rename OpenBook
 ⏳ Loading states and error handling polish
+⏳ Electron app with bundled backend (SQLite swap needed)

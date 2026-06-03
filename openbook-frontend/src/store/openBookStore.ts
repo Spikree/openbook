@@ -7,6 +7,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  image?: string;
 }
 
 export interface MarkingResult {

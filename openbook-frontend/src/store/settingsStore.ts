@@ -4,6 +4,8 @@ import { persist } from "zustand/middleware";
 interface SettingsStore {
   ollamaUrl: string;
   ollamaModel: string;
+  selectedModelCapabilities: string[];
+  setSelectedModelCapabilities: (caps: string[]) => void;
   dyslexiaFont: boolean;
   fontSize: number;
   lineHeight: number;
@@ -37,6 +39,9 @@ export const useSettingsStore = create<SettingsStore>()(
       setLineHeight: (height) => set({ lineHeight: height }),
       toggleHighContrast: () => set((s) => ({ highContrast: !s.highContrast })),
       toggleReadingRuler: () => set((s) => ({ readingRuler: !s.readingRuler })),
+      selectedModelCapabilities: [],
+      setSelectedModelCapabilities: (caps) =>
+        set({ selectedModelCapabilities: caps }),
     }),
     { name: "openbook-settings" },
   ),

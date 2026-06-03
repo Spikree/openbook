@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { api } from "@/api/client";
 
+type ModelInfo = { name: string; capabilities: string[] };
+
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,24 +40,52 @@ export function SettingsSheet({ open, onOpenChange }: SettingsDialogProps) {
     setLineHeight,
     toggleHighContrast,
     toggleReadingRuler,
+    setSelectedModelCapabilities,
   } = useSettingsStore();
 
-  const [availableModels, setAvailableModels] = useState<{ name: string }[]>(
-    [],
-  );
+  const [availableModels, setAvailableModels] = useState<
+    { name: string; capabilities: string[] }[]
+  >([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
 
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setModelsLoading(true);
+      setModelsError(null);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    setModelsLoading(true);
-    setModelsError(null);
+
     api
       .getModels()
-      .then((data) => setAvailableModels(data.models))
+      .then((data: { models: ModelInfo[] }) => {
+        setAvailableModels(data.models);
+
+        if (data.models.length > 0) {
+          const modelExists = data.models.some((m) => m.name === ollamaModel);
+          if (!modelExists) {
+            setOllamaModel(data.models[0].name);
+          }
+        }
+      })
       .catch((err) => setModelsError(err.message))
       .finally(() => setModelsLoading(false));
-  }, [open]);
+  }, [open, ollamaModel, setOllamaModel]);
+
+  useEffect(() => {
+    const selected = availableModels.find((m) => m.name === ollamaModel);
+    if (selected) {
+      setSelectedModelCapabilities(selected.capabilities);
+    } else {
+      setSelectedModelCapabilities([]);
+    }
+  }, [availableModels, ollamaModel, setSelectedModelCapabilities]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,7 +132,9 @@ export function SettingsSheet({ open, onOpenChange }: SettingsDialogProps) {
                 ) : (
                   <select
                     value={ollamaModel}
-                    onChange={(e) => setOllamaModel(e.target.value)}
+                    onChange={(e) => {
+                      setOllamaModel(e.target.value);
+                    }}
                     className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {availableModels.length === 0 && (

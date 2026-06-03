@@ -136,6 +136,7 @@ export const api = {
     conversationHistory: { role: string; content: string }[],
     onChunk: (chunk: string) => void,
     onDone: (full: string) => void,
+    images?: string[],
   ) => {
     const res = await fetch(`${BASE_URL}/ai/chat`, {
       method: "POST",
@@ -145,6 +146,7 @@ export const api = {
         message,
         selected_document_ids: selectedDocumentIds,
         conversation_history: conversationHistory,
+        images,
         ...getOllamaConfig(),
       }),
     });
