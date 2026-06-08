@@ -22,6 +22,8 @@
 ✅ Image upload in chat — vision support via gemma4:e2b
 ✅ Delete OpenBook from navbar/reader view
 ✅ Rename OpenBook
+✅ Loading states and error handling polish
 
-⏳ Loading states and error handling polish
 ⏳ Electron app with bundled backend (SQLite swap needed)
+⏳ MCP server
+⏳ Persist flashcards to backend (enable proper spaced repetition with SM-2 fields)
