@@ -3,6 +3,7 @@ import { useUIStore } from "@/store/uiStore";
 import type { OpenBook } from "@/store/openBookStore";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   SendHorizonal,
   Bot,
@@ -106,6 +107,10 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       );
     } catch (err) {
       console.error(err);
+      toast.error("Failed to send message", {
+        description:
+          err instanceof Error ? err.message : "Something went wrong",
+      });
       setIsLoading(false);
       setStreamingContent("");
     }

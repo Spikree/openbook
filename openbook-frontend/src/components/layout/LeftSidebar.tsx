@@ -3,13 +3,12 @@ import { useOpenBookStore } from "@/store/openBookStore";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, Trash2, CheckSquare, Square } from "lucide-react";
-import { api } from "@/api/client";
 
 export function LeftSidebar() {
   const {
     openBooks,
     activeOpenBookId,
-    addDocument,
+    uploadDocument,
     removeDocument,
     toggleDocumentSelection,
     selectAllDocuments,
@@ -17,24 +16,18 @@ export function LeftSidebar() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const activeOpenBook = Object.values(openBooks).find((ob) => ob.id === activeOpenBookId);
+  const activeOpenBook = Object.values(openBooks).find(
+    (ob) => ob.id === activeOpenBookId,
+  );
 
   const processFiles = async (files: FileList | null) => {
     if (!files || !activeOpenBookId) return;
     const pdfs = Array.from(files).filter((f) => f.type === "application/pdf");
-
     for (const file of pdfs) {
       try {
-        const uploaded = await api.uploadDocument(activeOpenBookId, file);
-        addDocument(activeOpenBookId, {
-          id: uploaded.id,
-          name: uploaded.name,
-          size: uploaded.size,
-          content: "",
-          uploadedAt: uploaded.uploaded_at,
-        });
-      } catch (err) {
-        console.error("Upload failed", err);
+        await uploadDocument(activeOpenBookId, file);
+      } catch {
+        // store handles toast
       }
     }
   };
@@ -135,9 +128,9 @@ export function LeftSidebar() {
                     {doc.name}
                   </span>
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      removeDocument(activeOpenBookId!, doc.id);
+                      await removeDocument(activeOpenBookId!, doc.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   >

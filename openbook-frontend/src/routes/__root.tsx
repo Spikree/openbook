@@ -6,6 +6,7 @@ import { useOpenBookStore } from "@/store/openBookStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { api } from "@/api/client";
 import { useEffect } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -36,6 +37,7 @@ function RootComponent() {
       <AppShell>
         <Outlet />
       </AppShell>
+      <Toaster />
     </>
   );
 }

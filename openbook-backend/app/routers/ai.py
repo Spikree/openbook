@@ -175,9 +175,9 @@ async def generate_exam(body: GenerateRequest, db: AsyncSession = Depends(get_db
     prompt = """Generate 5 exam questions from the provided documents.
 Return ONLY a JSON array in this exact format, no other text:
 [
-  {"question": "question here", "answer": "detailed answer here"},
-  ...
-]"""
+  {"question": "question here", "answer": "detailed answer here"}
+]
+Do not use backslashes, escape characters, or special formatting in the JSON values."""
 
     response = await generate(
         prompt,
@@ -185,17 +185,26 @@ Return ONLY a JSON array in this exact format, no other text:
         ollama_url=body.ollama_url,
         ollama_model=body.ollama_model,
     )
-    try:
-        questions = json.loads(response)
-    except json.JSONDecodeError:
-        import re
 
-        match = re.search(r"\[.*\]", response, re.DOTALL)
-        if match:
-            questions = json.loads(match.group())
-        else:
+    try:
+        clean = response.strip().strip("```json").strip("```").strip()
+        questions = json.loads(clean)
+    except json.JSONDecodeError:
+        try:
+            import re
+
+            match = re.search(r"\[.*\]", response, re.DOTALL)
+            if match:
+                questions = json.loads(match.group())
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="AI returned malformed questions. Please try again.",
+                )
+        except json.JSONDecodeError:
             raise HTTPException(
-                status_code=500, detail="Failed to parse exam questions"
+                status_code=500,
+                detail="AI returned malformed questions. Please try again.",
             )
 
     return {"questions": questions}

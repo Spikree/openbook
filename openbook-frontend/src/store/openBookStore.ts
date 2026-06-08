@@ -1,6 +1,7 @@
 import { api } from "@/api/client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { toast } from "sonner";
 
 export interface Message {
   id: string;
@@ -126,8 +127,8 @@ interface OpenBookStore {
   setActiveOpenBook: (id: string) => void;
   loadOpenBooks: () => Promise<void>;
 
-  addDocument: (openBookId: string, doc: OpenBookDocument) => void;
-  removeDocument: (openBookId: string, docId: string) => void;
+  uploadDocument: (openBookId: string, file: File) => Promise<void>;
+  removeDocument: (openBookId: string, docId: string) => Promise<void>;
 
   addMessage: (openBookId: string, message: Message) => void;
   clearConversation: (openBookId: string) => void;
@@ -163,6 +164,12 @@ const updateBook = (
     ...openBooks,
     [openBookId]: updater(book),
   };
+};
+
+const toastError = (message: string, err: unknown) => {
+  toast.error(message, {
+    description: err instanceof Error ? err.message : "Try again",
+  });
 };
 
 export const useOpenBookStore = create<OpenBookStore>()(
@@ -206,39 +213,67 @@ export const useOpenBookStore = create<OpenBookStore>()(
         }),
 
       renameOpenBook: async (id, name) => {
-        await api.renameOpenBook(id, name);
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, id, (ob) => ({
-            ...ob,
-            name,
-            updatedAt: new Date().toISOString(),
-          })),
-        }));
+        try {
+          await api.renameOpenBook(id, name);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, id, (ob) => ({
+              ...ob,
+              name,
+              updatedAt: new Date().toISOString(),
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to rename OpenBook", err);
+          throw err;
+        }
       },
 
       setActiveOpenBook: (id) => set({ activeOpenBookId: id }),
 
-      addDocument: (openBookId, doc) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            documents: [...ob.documents, doc],
-            selectedDocumentIds: [...ob.selectedDocumentIds, doc.id],
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
+      uploadDocument: async (openBookId, file) => {
+        try {
+          const uploaded = await api.uploadDocument(openBookId, file);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              documents: [
+                ...ob.documents,
+                {
+                  id: uploaded.id,
+                  name: uploaded.name,
+                  size: uploaded.size,
+                  content: "",
+                  uploadedAt: uploaded.uploaded_at,
+                },
+              ],
+              selectedDocumentIds: [...ob.selectedDocumentIds, uploaded.id],
+              updatedAt: new Date().toISOString(),
+            })),
+          }));
+        } catch (err) {
+          toastError(`Failed to upload ${file.name}`, err);
+          throw err;
+        }
+      },
 
-      removeDocument: (openBookId, docId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            documents: ob.documents.filter((d) => d.id !== docId),
-            selectedDocumentIds: ob.selectedDocumentIds.filter(
-              (id) => id !== docId,
-            ),
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
+      removeDocument: async (openBookId, docId) => {
+        try {
+          await api.deleteDocument(docId);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              documents: ob.documents.filter((d) => d.id !== docId),
+              selectedDocumentIds: ob.selectedDocumentIds.filter(
+                (id) => id !== docId,
+              ),
+              updatedAt: new Date().toISOString(),
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to delete document", err);
+          throw err;
+        }
+      },
 
       toggleDocumentSelection: (openBookId, docId) =>
         set((state) => ({
@@ -363,184 +398,224 @@ export const useOpenBookStore = create<OpenBookStore>()(
         })),
 
       generateFlashcards: async (openBookId) => {
-        const book = get().openBooks[openBookId];
-        if (!book) return;
-        const data = await api.generateFlashcards(
-          openBookId,
-          book.selectedDocumentIds,
-        );
-        const cards: Flashcard[] = data.flashcards.map(
-          (card: {
-            front?: string;
-            back?: string;
-            question?: string;
-            answer?: string;
-          }) => ({
-            id: crypto.randomUUID(),
-            front: card.front ?? card.question ?? "",
-            back: card.back ?? card.answer ?? "",
-            interval: 1,
-            easeFactor: 2.5,
-            dueDate: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          }),
-        );
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            flashcards: [...ob.flashcards, ...cards],
-            updatedAt: new Date().toISOString(),
-          })),
-        }));
+        try {
+          const book = get().openBooks[openBookId];
+          if (!book) return;
+          const data = await api.generateFlashcards(
+            openBookId,
+            book.selectedDocumentIds,
+          );
+          const cards: Flashcard[] = data.flashcards.map(
+            (card: {
+              front?: string;
+              back?: string;
+              question?: string;
+              answer?: string;
+            }) => ({
+              id: crypto.randomUUID(),
+              front: card.front ?? card.question ?? "",
+              back: card.back ?? card.answer ?? "",
+              interval: 1,
+              easeFactor: 2.5,
+              dueDate: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+            }),
+          );
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              flashcards: [...ob.flashcards, ...cards],
+              updatedAt: new Date().toISOString(),
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to generate flashcards", err);
+          throw err;
+        }
       },
 
       generateExam: async (openBookId) => {
-        const book = get().openBooks[openBookId];
-        if (!book) throw new Error("OpenBook not found");
-        const data = await api.generateExam(
-          openBookId,
-          book.selectedDocumentIds,
-        );
-        const session: ExamSession = {
-          id: crypto.randomUUID(),
-          questions: data.questions.map(
-            (q: { question: string; answer: string }) => ({
-              id: crypto.randomUUID(),
-              question: q.question,
-              answer: q.answer,
-              userAnswer: "",
-            }),
-          ),
-          result: null,
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            examSessions: [...(ob.examSessions ?? []), session],
-          })),
-        }));
+        try {
+          const book = get().openBooks[openBookId];
+          if (!book) throw new Error("OpenBook not found");
+          const data = await api.generateExam(
+            openBookId,
+            book.selectedDocumentIds,
+          );
+          const session: ExamSession = {
+            id: crypto.randomUUID(),
+            questions: data.questions.map(
+              (q: { question: string; answer: string }) => ({
+                id: crypto.randomUUID(),
+                question: q.question,
+                answer: q.answer,
+                userAnswer: "",
+              }),
+            ),
+            result: null,
+            createdAt: new Date().toISOString(),
+          };
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              examSessions: [...(ob.examSessions ?? []), session],
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to generate exam", err);
+          throw err;
+        }
       },
 
       generateMCQ: async (openBookId) => {
-        const book = get().openBooks[openBookId];
-        if (!book) throw new Error("OpenBook not found");
-        const data = await api.generateMCQ(
-          openBookId,
-          book.selectedDocumentIds,
-        );
-        const session: MCQSession = {
-          id: crypto.randomUUID(),
-          questions: data.questions.map(
-            (q: {
-              question: string;
-              options: string[];
-              correct_index?: number;
-              answer?: string;
-            }) => {
-              let correctIndex = q.correct_index ?? 0;
-              if (q.answer && q.correct_index === undefined) {
-                const found = q.options.findIndex(
-                  (o) =>
-                    o.toLowerCase().trim() === q.answer!.toLowerCase().trim(),
-                );
-                if (found !== -1) correctIndex = found;
-              }
-              return {
-                id: crypto.randomUUID(),
-                question: q.question,
-                options: q.options,
-                correctIndex,
-                selectedIndex: null,
-              };
-            },
-          ),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            mcqSessions: [...(ob.mcqSessions ?? []), session],
-          })),
-        }));
+        try {
+          const book = get().openBooks[openBookId];
+          if (!book) throw new Error("OpenBook not found");
+          const data = await api.generateMCQ(
+            openBookId,
+            book.selectedDocumentIds,
+          );
+          const session: MCQSession = {
+            id: crypto.randomUUID(),
+            questions: data.questions.map(
+              (q: {
+                question: string;
+                options: string[];
+                correct_index?: number;
+                answer?: string;
+              }) => {
+                let correctIndex = q.correct_index ?? 0;
+                if (q.answer && q.correct_index === undefined) {
+                  const found = q.options.findIndex(
+                    (o) =>
+                      o.toLowerCase().trim() === q.answer!.toLowerCase().trim(),
+                  );
+                  if (found !== -1) correctIndex = found;
+                }
+                return {
+                  id: crypto.randomUUID(),
+                  question: q.question,
+                  options: q.options,
+                  correctIndex,
+                  selectedIndex: null,
+                };
+              },
+            ),
+            createdAt: new Date().toISOString(),
+          };
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              mcqSessions: [...(ob.mcqSessions ?? []), session],
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to generate MCQ", err);
+          throw err;
+        }
       },
 
       loadOpenBooks: async () => {
-        const openBooks = await api.getOpenBooks();
-        const fullBooks = await Promise.all(
-          openBooks.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
-        );
+        try {
+          const openBooks = await api.getOpenBooks();
+          const fullBooks = await Promise.all(
+            openBooks.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
+          );
 
-        const notesByBook = await Promise.all(
-          openBooks.map((ob: { id: string }) => api.getNotes(ob.id)),
-        );
+          const notesByBook = await Promise.all(
+            openBooks.map((ob: { id: string }) => api.getNotes(ob.id)),
+          );
 
-        const record: Record<string, OpenBook> = {};
-        fullBooks.forEach((ob: any, i: number) => {
-          record[ob.id] = {
-            id: ob.id,
-            name: ob.name,
-            documents: ob.documents.map((d: any) => ({
-              id: d.id,
-              name: d.name,
-              size: d.size,
-              content: d.content,
-              uploadedAt: d.uploadedAt,
-            })),
-            selectedDocumentIds: ob.documents.map((d: any) => d.id),
-            conversations: [],
-            flashcards: [],
-            summaries: [],
-            examSessions: [],
-            mcqSessions: [],
-            summarySessions: [],
-            notes: notesByBook[i] ?? [],
-            createdAt: ob.created_at,
-            updatedAt: ob.updated_at,
-          };
-        });
-        set({ openBooks: record });
+          const record: Record<string, OpenBook> = {};
+          fullBooks.forEach((ob: any, i: number) => {
+            record[ob.id] = {
+              id: ob.id,
+              name: ob.name,
+              documents: ob.documents.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                size: d.size,
+                content: d.content,
+                uploadedAt: d.uploadedAt,
+              })),
+              selectedDocumentIds: ob.documents.map((d: any) => d.id),
+              conversations: [],
+              flashcards: [],
+              summaries: [],
+              examSessions: [],
+              mcqSessions: [],
+              summarySessions: [],
+              notes: notesByBook[i] ?? [],
+              createdAt: ob.created_at,
+              updatedAt: ob.updated_at,
+            };
+          });
+          set({ openBooks: record });
+        } catch (err) {
+          toastError("Failed to load OpenBooks", err);
+        }
       },
 
       createNote: async (openBookId, title) => {
-        const note = await api.createNote(openBookId, title);
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            notes: [note, ...(ob.notes ?? [])],
-          })),
-        }));
-        return note;
+        try {
+          const note = await api.createNote(openBookId, title);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              notes: [note, ...(ob.notes ?? [])],
+            })),
+          }));
+          return note;
+        } catch (err) {
+          toastError("Failed to create note", err);
+          throw err;
+        }
       },
 
       updateNote: async (openBookId, noteId, data) => {
-        const updated = await api.updateNote(noteId, data);
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            notes: (ob.notes ?? []).map((n) => (n.id === noteId ? updated : n)),
-          })),
-        }));
+        try {
+          const updated = await api.updateNote(noteId, data);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              notes: (ob.notes ?? []).map((n) =>
+                n.id === noteId ? updated : n,
+              ),
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to update note", err);
+          throw err;
+        }
       },
 
       deleteNote: async (openBookId, noteId) => {
-        await api.deleteNote(noteId);
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            notes: (ob.notes ?? []).filter((n) => n.id !== noteId),
-          })),
-        }));
+        try {
+          await api.deleteNote(noteId);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              notes: (ob.notes ?? []).filter((n) => n.id !== noteId),
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to delete note", err);
+          throw err;
+        }
       },
 
       loadNotes: async (openBookId) => {
-        const notes = await api.getNotes(openBookId);
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            notes,
-          })),
-        }));
+        try {
+          const notes = await api.getNotes(openBookId);
+          set((state) => ({
+            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
+              ...ob,
+              notes,
+            })),
+          }));
+        } catch (err) {
+          toastError("Failed to load notes", err);
+        }
       },
 
       clearActiveOpenBook: () => set({ activeOpenBookId: null }),

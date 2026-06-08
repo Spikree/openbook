@@ -78,8 +78,11 @@ export function RightSidebar() {
           sessionId: sessions[sessions.length - 1].id,
         });
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // commenting this out because error messages are handled in main openbookstore
+      // toast.error(`Failed to generate ${type}`, {
+      //   description: err instanceof Error ? err.message : "Try again",
+      // });
     } finally {
       setIsGenerating(null);
     }
