@@ -36,7 +36,7 @@ function Reader() {
         onValueChange={setActiveReaderTab}
         className="flex flex-col h-full"
       >
-        <div className="shrink-0 border-b border-border px-4">
+        <div className="shrink-0  px-4">
           <TabsList className="bg-transparent h-12 gap-1">
             <TabsTrigger
               value="chat"
