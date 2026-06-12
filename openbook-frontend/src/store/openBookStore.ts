@@ -1,14 +1,38 @@
 import { api } from "@/api/client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
+
+// ───────────────────────── entities ─────────────────────────
 
 export interface Message {
   id: string;
+  openBookId: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
   image?: string;
+}
+
+export interface OpenBookDocument {
+  id: string;
+  openBookId: string;
+  name: string;
+  size: number;
+  content: string;
+  uploadedAt: string;
+}
+
+export interface Flashcard {
+  id: string;
+  openBookId: string;
+  front: string;
+  back: string;
+  interval: number;
+  easeFactor: number;
+  dueDate: string;
+  createdAt: string;
 }
 
 export interface MarkingResult {
@@ -28,6 +52,7 @@ export interface MarkingResult {
 
 export interface ExamSession {
   id: string;
+  openBookId: string;
   questions: {
     id: string;
     question: string;
@@ -40,6 +65,7 @@ export interface ExamSession {
 
 export interface MCQSession {
   id: string;
+  openBookId: string;
   questions: {
     id: string;
     question: string;
@@ -52,49 +78,17 @@ export interface MCQSession {
 
 export interface SummarySession {
   id: string;
+  openBookId: string;
   content: string;
-  createdAt: string;
-}
-
-export interface OpenBookDocument {
-  id: string;
-  name: string;
-  size: number;
-  content: string;
-  uploadedAt: string;
-}
-
-export interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  interval: number;
-  easeFactor: number;
-  dueDate: string;
   createdAt: string;
 }
 
 export interface Summary {
   id: string;
-  content: string;
+  openBookId: string;
   documentId: string;
+  content: string;
   createdAt: string;
-}
-
-export interface OpenBook {
-  id: string;
-  name: string;
-  documents: OpenBookDocument[];
-  conversations: Message[];
-  flashcards: Flashcard[];
-  summaries: Summary[];
-  selectedDocumentIds: string[];
-  examSessions: ExamSession[];
-  mcqSessions: MCQSession[];
-  summarySessions: SummarySession[];
-  notes: Note[];
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Note {
@@ -106,46 +100,86 @@ export interface Note {
   updated_at: string;
 }
 
+export interface OpenBook {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  documentIds: string[];
+  noteIds: string[];
+  flashcardIds: string[];
+  examSessionIds: string[];
+  mcqSessionIds: string[];
+  summarySessionIds: string[];
+  summaryIds: string[];
+  messageIds: string[];
+  selectedDocumentIds: string[];
+}
+
+// ───────────────────────── store ─────────────────────────
+
 interface OpenBookStore {
   openBooks: Record<string, OpenBook>;
-  activeOpenBookId: string | null;
+  documents: Record<string, OpenBookDocument>;
+  notes: Record<string, Note>;
+  flashcards: Record<string, Flashcard>;
+  examSessions: Record<string, ExamSession>;
+  mcqSessions: Record<string, MCQSession>;
+  summarySessions: Record<string, SummarySession>;
+  summaries: Record<string, Summary>;
+  messages: Record<string, Message>;
 
-  toggleDocumentSelection: (openBookId: string, docId: string) => void;
-  selectAllDocuments: (openBookId: string) => void;
-  clearActiveOpenBook: () => void;
-
-  addExamSession: (openBookId: string, session: ExamSession) => void;
-  addMCQSession: (openBookId: string, session: MCQSession) => void;
-  addSummarySession: (openBookId: string, session: SummarySession) => void;
-  removeExamSession: (openBookId: string, sessionId: string) => void;
-  removeMCQSession: (openBookId: string, sessionId: string) => void;
-  removeSummarySession: (openBookId: string, sessionId: string) => void;
-
-  createOpenBook: (name: string, id?: string) => void;
-  deleteOpenBook: (id: string) => void;
+  createOpenBook: (name: string) => Promise<OpenBook | null>;
+  deleteOpenBook: (id: string) => Promise<void>;
   renameOpenBook: (id: string, name: string) => Promise<void>;
-  setActiveOpenBook: (id: string) => void;
+
   loadOpenBooks: () => Promise<void>;
 
   uploadDocument: (openBookId: string, file: File) => Promise<void>;
   removeDocument: (openBookId: string, docId: string) => Promise<void>;
+  toggleDocumentSelection: (openBookId: string, docId: string) => void;
+  selectAllDocuments: (openBookId: string) => void;
+  clearDocumentSelection: (openBookId: string) => void;
 
-  addMessage: (openBookId: string, message: Message) => void;
+  addMessage: (
+    openBookId: string,
+    message: Omit<Message, "openBookId">,
+  ) => void;
   clearConversation: (openBookId: string) => void;
 
-  addFlashcard: (openBookId: string, flashcard: Flashcard) => void;
+  generateFlashcards: (openBookId: string) => Promise<void>;
+  addFlashcard: (
+    openBookId: string,
+    flashcard: Omit<Flashcard, "openBookId">,
+  ) => void;
   removeFlashcard: (openBookId: string, flashcardId: string) => void;
 
-  addSummary: (openBookId: string, summary: Summary) => void;
-  removeSummary: (openBookId: string, summaryId: string) => void;
-
-  generateFlashcards: (openBookId: string) => Promise<void>;
   generateExam: (openBookId: string) => Promise<void>;
   generateMCQ: (openBookId: string) => Promise<void>;
+  addExamSession: (
+    openBookId: string,
+    session: Omit<ExamSession, "openBookId">,
+  ) => void;
+  addMCQSession: (
+    openBookId: string,
+    session: Omit<MCQSession, "openBookId">,
+  ) => void;
+  addSummarySession: (
+    openBookId: string,
+    session: Omit<SummarySession, "openBookId">,
+  ) => void;
+  removeExamSession: (openBookId: string, sessionId: string) => void;
+  removeMCQSession: (openBookId: string, sessionId: string) => void;
+  removeSummarySession: (openBookId: string, sessionId: string) => void;
+
+  addSummary: (
+    openBookId: string,
+    summary: Omit<Summary, "openBookId">,
+  ) => void;
+  removeSummary: (openBookId: string, summaryId: string) => void;
 
   createNote: (openBookId: string, title: string) => Promise<Note>;
   updateNote: (
-    openBookId: string,
     noteId: string,
     data: { title?: string; content?: string },
   ) => Promise<void>;
@@ -153,103 +187,222 @@ interface OpenBookStore {
   loadNotes: (openBookId: string) => Promise<void>;
 }
 
-const updateBook = (
-  openBooks: Record<string, OpenBook>,
-  openBookId: string,
-  updater: (ob: OpenBook) => OpenBook,
-): Record<string, OpenBook> => {
-  const book = openBooks[openBookId];
-  if (!book) return openBooks;
-  return {
-    ...openBooks,
-    [openBookId]: updater(book),
-  };
-};
-
 const toastError = (message: string, err: unknown) => {
   toast.error(message, {
     description: err instanceof Error ? err.message : "Try again",
   });
 };
 
+// remove a set of ids from an entity table
+const omitIds = <T>(
+  table: Record<string, T>,
+  ids: string[],
+): Record<string, T> => {
+  if (ids.length === 0) return table;
+  const next = { ...table };
+  ids.forEach((id) => delete next[id]);
+  return next;
+};
+
+const emptyBook = (
+  id: string,
+  name: string,
+  createdAt?: string,
+  updatedAt?: string,
+): OpenBook => ({
+  id,
+  name,
+  createdAt: createdAt ?? new Date().toISOString(),
+  updatedAt: updatedAt ?? new Date().toISOString(),
+  documentIds: [],
+  noteIds: [],
+  flashcardIds: [],
+  examSessionIds: [],
+  mcqSessionIds: [],
+  summarySessionIds: [],
+  summaryIds: [],
+  messageIds: [],
+  selectedDocumentIds: [],
+});
+
 export const useOpenBookStore = create<OpenBookStore>()(
   persist(
     (set, get) => ({
       openBooks: {},
-      activeOpenBookId: null,
+      documents: {},
+      notes: {},
+      flashcards: {},
+      examSessions: {},
+      mcqSessions: {},
+      summarySessions: {},
+      summaries: {},
+      messages: {},
 
-      createOpenBook: (name, id) => {
-        const bookId = id ?? crypto.randomUUID();
-        set((state) => ({
-          openBooks: {
-            ...state.openBooks,
-            [bookId]: {
-              id: bookId,
-              name,
-              documents: [],
-              selectedDocumentIds: [],
-              conversations: [],
-              flashcards: [],
-              summaries: [],
-              examSessions: [],
-              mcqSessions: [],
-              summarySessions: [],
-              notes: [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        }));
+      // ───────── books ─────────
+
+      createOpenBook: async (name) => {
+        try {
+          const created = await api.createOpenBook(name);
+          const book = emptyBook(
+            created.id,
+            created.name,
+            created.created_at,
+            created.updated_at,
+          );
+          set((state) => ({
+            openBooks: { ...state.openBooks, [book.id]: book },
+          }));
+          return book;
+        } catch (err) {
+          toastError("Failed to create OpenBook", err);
+          return null;
+        }
       },
 
-      deleteOpenBook: (id) =>
-        set((state) => {
-          const { [id]: _, ...rest } = state.openBooks;
-          return {
-            openBooks: rest,
-            activeOpenBookId:
-              state.activeOpenBookId === id ? null : state.activeOpenBookId,
-          };
-        }),
+      deleteOpenBook: async (id) => {
+        try {
+          await api.deleteOpenBook(id);
+          // normalized delete = cascade: every child id the book references
+          // must be removed from its table, or we leak orphaned entities
+          set((state) => {
+            const book = state.openBooks[id];
+            if (!book) return state;
+            const { [id]: _removed, ...restBooks } = state.openBooks;
+            return {
+              openBooks: restBooks,
+              documents: omitIds(state.documents, book.documentIds),
+              notes: omitIds(state.notes, book.noteIds),
+              flashcards: omitIds(state.flashcards, book.flashcardIds),
+              examSessions: omitIds(state.examSessions, book.examSessionIds),
+              mcqSessions: omitIds(state.mcqSessions, book.mcqSessionIds),
+              summarySessions: omitIds(
+                state.summarySessions,
+                book.summarySessionIds,
+              ),
+              summaries: omitIds(state.summaries, book.summaryIds),
+              messages: omitIds(state.messages, book.messageIds),
+            };
+          });
+        } catch (err) {
+          toastError("Failed to delete OpenBook", err);
+          throw err;
+        }
+      },
 
       renameOpenBook: async (id, name) => {
         try {
           await api.renameOpenBook(id, name);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, id, (ob) => ({
-              ...ob,
-              name,
-              updatedAt: new Date().toISOString(),
-            })),
-          }));
+          set((state) => {
+            const book = state.openBooks[id];
+            if (!book) return state;
+            return {
+              openBooks: {
+                ...state.openBooks,
+                [id]: { ...book, name, updatedAt: new Date().toISOString() },
+              },
+            };
+          });
         } catch (err) {
           toastError("Failed to rename OpenBook", err);
           throw err;
         }
       },
 
-      setActiveOpenBook: (id) => set({ activeOpenBookId: id }),
+      loadOpenBooks: async () => {
+        try {
+          const list = await api.getOpenBooks();
+          const fullBooks = await Promise.all(
+            list.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
+          );
+          const notesByBook = await Promise.all(
+            list.map((ob: { id: string }) => api.getNotes(ob.id)),
+          );
+
+          // normalize: flatten nested API responses into entity tables
+          const openBooks: Record<string, OpenBook> = {};
+          const documents: Record<string, OpenBookDocument> = {};
+          const notes: Record<string, Note> = {};
+
+          fullBooks.forEach((ob: any, i: number) => {
+            const documentIds: string[] = [];
+            ob.documents.forEach((d: any) => {
+              documents[d.id] = {
+                id: d.id,
+                openBookId: ob.id,
+                name: d.name,
+                size: d.size,
+                content: d.content,
+                uploadedAt: d.uploaded_at,
+              };
+              documentIds.push(d.id);
+            });
+
+            const noteIds: string[] = [];
+            (notesByBook[i] ?? []).forEach((n: Note) => {
+              notes[n.id] = n;
+              noteIds.push(n.id);
+            });
+
+            openBooks[ob.id] = {
+              ...emptyBook(ob.id, ob.name, ob.created_at, ob.updated_at),
+              documentIds,
+              noteIds,
+              selectedDocumentIds: documentIds, // select all by default, as before
+            };
+          });
+
+          // sessions/messages were never persisted — reset on load, as before
+          set({
+            openBooks,
+            documents,
+            notes,
+            flashcards: {},
+            examSessions: {},
+            mcqSessions: {},
+            summarySessions: {},
+            summaries: {},
+            messages: {},
+          });
+        } catch (err) {
+          toastError("Failed to load OpenBooks", err);
+        }
+      },
+
+      // ───────── documents ─────────
 
       uploadDocument: async (openBookId, file) => {
         try {
           const uploaded = await api.uploadDocument(openBookId, file);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              documents: [
-                ...ob.documents,
-                {
+          // two-step write: entity into table, id into parent array
+          set((state) => {
+            const book = state.openBooks[openBookId];
+            if (!book) return state;
+            return {
+              documents: {
+                ...state.documents,
+                [uploaded.id]: {
                   id: uploaded.id,
+                  openBookId,
                   name: uploaded.name,
                   size: uploaded.size,
                   content: "",
                   uploadedAt: uploaded.uploaded_at,
                 },
-              ],
-              selectedDocumentIds: [...ob.selectedDocumentIds, uploaded.id],
-              updatedAt: new Date().toISOString(),
-            })),
-          }));
+              },
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: {
+                  ...book,
+                  documentIds: [...book.documentIds, uploaded.id],
+                  selectedDocumentIds: [
+                    ...book.selectedDocumentIds,
+                    uploaded.id,
+                  ],
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            };
+          });
         } catch (err) {
           toastError(`Failed to upload ${file.name}`, err);
           throw err;
@@ -259,16 +412,24 @@ export const useOpenBookStore = create<OpenBookStore>()(
       removeDocument: async (openBookId, docId) => {
         try {
           await api.deleteDocument(docId);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              documents: ob.documents.filter((d) => d.id !== docId),
-              selectedDocumentIds: ob.selectedDocumentIds.filter(
-                (id) => id !== docId,
-              ),
-              updatedAt: new Date().toISOString(),
-            })),
-          }));
+          set((state) => {
+            const book = state.openBooks[openBookId];
+            if (!book) return state;
+            return {
+              documents: omitIds(state.documents, [docId]),
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: {
+                  ...book,
+                  documentIds: book.documentIds.filter((id) => id !== docId),
+                  selectedDocumentIds: book.selectedDocumentIds.filter(
+                    (id) => id !== docId,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            };
+          });
         } catch (err) {
           toastError("Failed to delete document", err);
           throw err;
@@ -276,126 +437,89 @@ export const useOpenBookStore = create<OpenBookStore>()(
       },
 
       toggleDocumentSelection: (openBookId, docId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            selectedDocumentIds: ob.selectedDocumentIds.includes(docId)
-              ? ob.selectedDocumentIds.filter((id) => id !== docId)
-              : [...ob.selectedDocumentIds, docId],
-          })),
-        })),
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                selectedDocumentIds: book.selectedDocumentIds.includes(docId)
+                  ? book.selectedDocumentIds.filter((id) => id !== docId)
+                  : [...book.selectedDocumentIds, docId],
+              },
+            },
+          };
+        }),
 
       selectAllDocuments: (openBookId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            selectedDocumentIds: ob.documents.map((d) => d.id),
-          })),
-        })),
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                selectedDocumentIds: [...book.documentIds],
+              },
+            },
+          };
+        }),
+
+      clearDocumentSelection: (openBookId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: { ...book, selectedDocumentIds: [] },
+            },
+          };
+        }),
+
+      // ───────── messages ─────────
 
       addMessage: (openBookId, message) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            conversations: [...ob.conversations, message],
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            messages: {
+              ...state.messages,
+              [message.id]: { ...message, openBookId }, // FK stamped here, not by callers
+            },
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                messageIds: [...book.messageIds, message.id],
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          };
+        }),
 
       clearConversation: (openBookId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            conversations: [],
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            messages: omitIds(state.messages, book.messageIds),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                messageIds: [],
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          };
+        }),
 
-      addFlashcard: (openBookId, flashcard) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            flashcards: [...ob.flashcards, flashcard],
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
-
-      removeFlashcard: (openBookId, flashcardId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            flashcards: ob.flashcards.filter((f) => f.id !== flashcardId),
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
-
-      addSummary: (openBookId, summary) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            summaries: [...ob.summaries, summary],
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
-
-      removeSummary: (openBookId, summaryId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            summaries: ob.summaries.filter((s) => s.id !== summaryId),
-            updatedAt: new Date().toISOString(),
-          })),
-        })),
-
-      addExamSession: (openBookId, session) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            examSessions: [...(ob.examSessions ?? []), session],
-          })),
-        })),
-
-      addMCQSession: (openBookId, session) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            mcqSessions: [...(ob.mcqSessions ?? []), session],
-          })),
-        })),
-
-      addSummarySession: (openBookId, session) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            summarySessions: [...(ob.summarySessions ?? []), session],
-          })),
-        })),
-
-      removeExamSession: (openBookId, sessionId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            examSessions: ob.examSessions.filter((s) => s.id !== sessionId),
-          })),
-        })),
-
-      removeMCQSession: (openBookId, sessionId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            mcqSessions: ob.mcqSessions.filter((s) => s.id !== sessionId),
-          })),
-        })),
-
-      removeSummarySession: (openBookId, sessionId) =>
-        set((state) => ({
-          openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-            ...ob,
-            summarySessions: ob.summarySessions.filter(
-              (s) => s.id !== sessionId,
-            ),
-          })),
-        })),
+      // ───────── flashcards ─────────
 
       generateFlashcards: async (openBookId) => {
         try {
@@ -413,6 +537,7 @@ export const useOpenBookStore = create<OpenBookStore>()(
               answer?: string;
             }) => ({
               id: crypto.randomUUID(),
+              openBookId,
               front: card.front ?? card.question ?? "",
               back: card.back ?? card.answer ?? "",
               interval: 1,
@@ -421,18 +546,70 @@ export const useOpenBookStore = create<OpenBookStore>()(
               createdAt: new Date().toISOString(),
             }),
           );
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              flashcards: [...ob.flashcards, ...cards],
-              updatedAt: new Date().toISOString(),
-            })),
-          }));
+          set((state) => {
+            const b = state.openBooks[openBookId];
+            if (!b) return state;
+            const table = { ...state.flashcards };
+            cards.forEach((c) => (table[c.id] = c));
+            return {
+              flashcards: table,
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: {
+                  ...b,
+                  flashcardIds: [...b.flashcardIds, ...cards.map((c) => c.id)],
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            };
+          });
         } catch (err) {
           toastError("Failed to generate flashcards", err);
           throw err;
         }
       },
+
+      addFlashcard: (openBookId, flashcard) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          const exists = book.flashcardIds.includes(flashcard.id);
+          return {
+            flashcards: {
+              ...state.flashcards,
+              [flashcard.id]: { ...flashcard, openBookId },
+            },
+            openBooks: exists
+              ? state.openBooks // upsert: table write only, id already in array
+              : {
+                  ...state.openBooks,
+                  [openBookId]: {
+                    ...book,
+                    flashcardIds: [...book.flashcardIds, flashcard.id],
+                  },
+                },
+          };
+        }),
+
+      removeFlashcard: (openBookId, flashcardId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            flashcards: omitIds(state.flashcards, [flashcardId]),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                flashcardIds: book.flashcardIds.filter(
+                  (id) => id !== flashcardId,
+                ),
+              },
+            },
+          };
+        }),
+
+      // ───────── exam / mcq / summary sessions ─────────
 
       generateExam: async (openBookId) => {
         try {
@@ -444,6 +621,7 @@ export const useOpenBookStore = create<OpenBookStore>()(
           );
           const session: ExamSession = {
             id: crypto.randomUUID(),
+            openBookId,
             questions: data.questions.map(
               (q: { question: string; answer: string }) => ({
                 id: crypto.randomUUID(),
@@ -455,12 +633,7 @@ export const useOpenBookStore = create<OpenBookStore>()(
             result: null,
             createdAt: new Date().toISOString(),
           };
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              examSessions: [...(ob.examSessions ?? []), session],
-            })),
-          }));
+          get().addExamSession(openBookId, session);
         } catch (err) {
           toastError("Failed to generate exam", err);
           throw err;
@@ -477,6 +650,7 @@ export const useOpenBookStore = create<OpenBookStore>()(
           );
           const session: MCQSession = {
             id: crypto.randomUUID(),
+            openBookId,
             questions: data.questions.map(
               (q: {
                 question: string;
@@ -503,68 +677,189 @@ export const useOpenBookStore = create<OpenBookStore>()(
             ),
             createdAt: new Date().toISOString(),
           };
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              mcqSessions: [...(ob.mcqSessions ?? []), session],
-            })),
-          }));
+          get().addMCQSession(openBookId, session);
         } catch (err) {
           toastError("Failed to generate MCQ", err);
           throw err;
         }
       },
 
-      loadOpenBooks: async () => {
-        try {
-          const openBooks = await api.getOpenBooks();
-          const fullBooks = await Promise.all(
-            openBooks.map((ob: { id: string }) => api.getOpenBookFull(ob.id)),
-          );
+      addExamSession: (openBookId, session) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          const exists = book.examSessionIds.includes(session.id);
+          return {
+            examSessions: {
+              ...state.examSessions,
+              [session.id]: { ...session, openBookId },
+            },
+            openBooks: exists
+              ? state.openBooks
+              : {
+                  ...state.openBooks,
+                  [openBookId]: {
+                    ...book,
+                    examSessionIds: [...book.examSessionIds, session.id],
+                  },
+                },
+          };
+        }),
 
-          const notesByBook = await Promise.all(
-            openBooks.map((ob: { id: string }) => api.getNotes(ob.id)),
-          );
+      addMCQSession: (openBookId, session) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          const exists = book.mcqSessionIds.includes(session.id);
+          return {
+            mcqSessions: {
+              ...state.mcqSessions,
+              [session.id]: { ...session, openBookId },
+            },
+            openBooks: exists
+              ? state.openBooks
+              : {
+                  ...state.openBooks,
+                  [openBookId]: {
+                    ...book,
+                    mcqSessionIds: [...book.mcqSessionIds, session.id],
+                  },
+                },
+          };
+        }),
 
-          const record: Record<string, OpenBook> = {};
-          fullBooks.forEach((ob: any, i: number) => {
-            record[ob.id] = {
-              id: ob.id,
-              name: ob.name,
-              documents: ob.documents.map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                size: d.size,
-                content: d.content,
-                uploadedAt: d.uploadedAt,
-              })),
-              selectedDocumentIds: ob.documents.map((d: any) => d.id),
-              conversations: [],
-              flashcards: [],
-              summaries: [],
-              examSessions: [],
-              mcqSessions: [],
-              summarySessions: [],
-              notes: notesByBook[i] ?? [],
-              createdAt: ob.created_at,
-              updatedAt: ob.updated_at,
-            };
-          });
-          set({ openBooks: record });
-        } catch (err) {
-          toastError("Failed to load OpenBooks", err);
-        }
-      },
+      addSummarySession: (openBookId, session) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          const exists = book.summarySessionIds.includes(session.id);
+          return {
+            summarySessions: {
+              ...state.summarySessions,
+              [session.id]: { ...session, openBookId },
+            },
+            openBooks: exists
+              ? state.openBooks
+              : {
+                  ...state.openBooks,
+                  [openBookId]: {
+                    ...book,
+                    summarySessionIds: [...book.summarySessionIds, session.id],
+                  },
+                },
+          };
+        }),
+
+      removeExamSession: (openBookId, sessionId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            examSessions: omitIds(state.examSessions, [sessionId]),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                examSessionIds: book.examSessionIds.filter(
+                  (id) => id !== sessionId,
+                ),
+              },
+            },
+          };
+        }),
+
+      removeMCQSession: (openBookId, sessionId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            mcqSessions: omitIds(state.mcqSessions, [sessionId]),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                mcqSessionIds: book.mcqSessionIds.filter(
+                  (id) => id !== sessionId,
+                ),
+              },
+            },
+          };
+        }),
+
+      removeSummarySession: (openBookId, sessionId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            summarySessions: omitIds(state.summarySessions, [sessionId]),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                summarySessionIds: book.summarySessionIds.filter(
+                  (id) => id !== sessionId,
+                ),
+              },
+            },
+          };
+        }),
+
+      // ───────── summaries ─────────
+
+      addSummary: (openBookId, summary) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          const exists = book.summaryIds.includes(summary.id);
+          return {
+            summaries: {
+              ...state.summaries,
+              [summary.id]: { ...summary, openBookId },
+            },
+            openBooks: exists
+              ? state.openBooks
+              : {
+                  ...state.openBooks,
+                  [openBookId]: {
+                    ...book,
+                    summaryIds: [...book.summaryIds, summary.id],
+                  },
+                },
+          };
+        }),
+
+      removeSummary: (openBookId, summaryId) =>
+        set((state) => {
+          const book = state.openBooks[openBookId];
+          if (!book) return state;
+          return {
+            summaries: omitIds(state.summaries, [summaryId]),
+            openBooks: {
+              ...state.openBooks,
+              [openBookId]: {
+                ...book,
+                summaryIds: book.summaryIds.filter((id) => id !== summaryId),
+              },
+            },
+          };
+        }),
+
+      // ───────── notes ─────────
 
       createNote: async (openBookId, title) => {
         try {
           const note = await api.createNote(openBookId, title);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              notes: [note, ...(ob.notes ?? [])],
-            })),
-          }));
+          set((state) => {
+            const book = state.openBooks[openBookId];
+            if (!book) return state;
+            return {
+              notes: { ...state.notes, [note.id]: note },
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: { ...book, noteIds: [note.id, ...book.noteIds] }, // newest first
+              },
+            };
+          });
           return note;
         } catch (err) {
           toastError("Failed to create note", err);
@@ -572,16 +867,13 @@ export const useOpenBookStore = create<OpenBookStore>()(
         }
       },
 
-      updateNote: async (openBookId, noteId, data) => {
+      updateNote: async (noteId, data) => {
         try {
           const updated = await api.updateNote(noteId, data);
+          // the payoff: only notes[noteId] changes. the book object is untouched,
+          // so nothing watching the book re-renders on every autosave
           set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              notes: (ob.notes ?? []).map((n) =>
-                n.id === noteId ? updated : n,
-              ),
-            })),
+            notes: { ...state.notes, [noteId]: updated },
           }));
         } catch (err) {
           toastError("Failed to update note", err);
@@ -592,12 +884,20 @@ export const useOpenBookStore = create<OpenBookStore>()(
       deleteNote: async (openBookId, noteId) => {
         try {
           await api.deleteNote(noteId);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              notes: (ob.notes ?? []).filter((n) => n.id !== noteId),
-            })),
-          }));
+          set((state) => {
+            const book = state.openBooks[openBookId];
+            if (!book) return state;
+            return {
+              notes: omitIds(state.notes, [noteId]),
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: {
+                  ...book,
+                  noteIds: book.noteIds.filter((id) => id !== noteId),
+                },
+              },
+            };
+          });
         } catch (err) {
           toastError("Failed to delete note", err);
           throw err;
@@ -606,35 +906,119 @@ export const useOpenBookStore = create<OpenBookStore>()(
 
       loadNotes: async (openBookId) => {
         try {
-          const notes = await api.getNotes(openBookId);
-          set((state) => ({
-            openBooks: updateBook(state.openBooks, openBookId, (ob) => ({
-              ...ob,
-              notes,
-            })),
-          }));
+          const fetched: Note[] = await api.getNotes(openBookId);
+          set((state) => {
+            const book = state.openBooks[openBookId];
+            if (!book) return state;
+            const nextNotes = omitIds(state.notes, book.noteIds); // drop this book's old notes
+            const noteIds: string[] = [];
+            fetched.forEach((n) => {
+              nextNotes[n.id] = n;
+              noteIds.push(n.id);
+            });
+            return {
+              notes: nextNotes,
+              openBooks: {
+                ...state.openBooks,
+                [openBookId]: { ...book, noteIds },
+              },
+            };
+          });
         } catch (err) {
           toastError("Failed to load notes", err);
         }
       },
-
-      clearActiveOpenBook: () => set({ activeOpenBookId: null }),
     }),
-
     {
       name: "openbook-store",
+      version: 1, // old nested shape is incompatible; backend rebuilds on startup
+      migrate: () => undefined as never,
       partialize: (state) => ({
-        activeOpenBookId: state.activeOpenBookId,
-        openBooks: Object.fromEntries(
-          Object.entries(state.openBooks).map(([id, ob]) => [
+        openBooks: state.openBooks,
+        documents: Object.fromEntries(
+          Object.entries(state.documents).map(([id, d]) => [
             id,
-            {
-              ...ob,
-              documents: ob.documents.map(({ content: _, ...rest }) => rest),
-            },
+            { ...d, content: "" },
           ]),
         ),
       }),
     },
   ),
 );
+
+// ───────────────────────── selectors ─────────────────────────
+// these build new arrays each call, so useShallow compares contents
+// (entity references) instead of the array reference — entities only
+// change when actually edited, so re-renders stay surgical
+
+const isDefined = <T>(x: T | undefined): x is T => x !== undefined;
+
+export const useBookDocuments = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.documentIds.map((id) => s.documents[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookMessages = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.messageIds.map((id) => s.messages[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookNotes = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.noteIds.map((id) => s.notes[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookFlashcards = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.flashcardIds.map((id) => s.flashcards[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookExamSessions = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.examSessionIds.map((id) => s.examSessions[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookMCQSessions = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.mcqSessionIds.map((id) => s.mcqSessions[id]).filter(isDefined)
+        : [];
+    }),
+  );
+
+export const useBookSummaries = (bookId: string | null | undefined) =>
+  useOpenBookStore(
+    useShallow((s) => {
+      const book = bookId ? s.openBooks[bookId] : undefined;
+      return book
+        ? book.summaryIds.map((id) => s.summaries[id]).filter(isDefined)
+        : [];
+    }),
+  );
