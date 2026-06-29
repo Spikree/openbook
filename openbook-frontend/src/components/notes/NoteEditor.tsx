@@ -2,19 +2,23 @@ import { useState, useEffect } from "react";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { useUIStore } from "@/store/uiStore";
 import { Button } from "@/components/ui/button";
-import { X, Download, Trash2 } from "lucide-react";
+import { X, Download, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { api } from "@/api/client";
-import { CheckCircle2, Loader2 } from "lucide-react";
 
 export function NoteEditor({ openBookId }: { openBookId: string }) {
-  const { activeDialog, setActiveDialog } = useUIStore();
-  const { openBooks, createNote, updateNote, deleteNote } = useOpenBookStore();
+  const activeDialog = useUIStore((s) => s.activeDialog);
+  const setActiveDialog = useUIStore((s) => s.setActiveDialog);
+
+  const createNote = useOpenBookStore((s) => s.createNote);
+  const updateNote = useOpenBookStore((s) => s.updateNote);
+  const deleteNote = useOpenBookStore((s) => s.deleteNote);
 
   const noteId = activeDialog?.type === "note" ? activeDialog.noteId : null;
-  const activeOpenBook = openBooks[openBookId];
-  const existingNote = noteId
-    ? activeOpenBook?.notes?.find((n) => n.id === noteId)
-    : null;
+
+  // direct table lookup — no book subscription, no array scan
+  const existingNote = useOpenBookStore((s) =>
+    noteId ? s.notes[noteId] : undefined,
+  );
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -37,7 +41,7 @@ export function NoteEditor({ openBookId }: { openBookId: string }) {
     const t = setTimeout(async () => {
       setSaveStatus("saving");
       try {
-        await updateNote(openBookId, currentNoteId, { title, content });
+        await updateNote(currentNoteId, { title, content });
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 1500);
       } catch {
@@ -45,16 +49,15 @@ export function NoteEditor({ openBookId }: { openBookId: string }) {
       }
     }, 800);
     return () => clearTimeout(t);
-  }, [title, content, currentNoteId]);
+  }, [title, content, currentNoteId, openBookId, updateNote]);
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || currentNoteId) return;
     try {
       const note = await createNote(openBookId, title.trim());
       setCurrentNoteId(note.id);
     } catch {
-      // commenting this out because error messages are handled in main openbookstore
-      // toast.error("Failed to create note");
+      // store handles toast
     }
   };
 
@@ -64,8 +67,7 @@ export function NoteEditor({ openBookId }: { openBookId: string }) {
       await deleteNote(openBookId, currentNoteId);
       setActiveDialog(null);
     } catch {
-      // commenting this out because error messages are handled in main openbookstore
-      // toast.error("Failed to delete note");
+      // store handles toast
     }
   };
 

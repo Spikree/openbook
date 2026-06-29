@@ -1,8 +1,8 @@
-import { useRouterState } from "@tanstack/react-router";
 import { useRef, useState, useCallback } from "react";
 import { Navbar } from "./Navbar";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
+import { useParams } from "@tanstack/react-router";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -13,8 +13,11 @@ export function AppShell({ children }: AppShellProps) {
   const [rightWidth, setRightWidth] = useState(280);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { location } = useRouterState();
-  const isReader = location.pathname === "/reader";
+  const MIN_SIDEBAR_WIDTH = 180;
+  const MAX_SIDEBAR_WIDTH = 480;
+
+  const { openBookId } = useParams({ strict: false });
+  const isReader = openBookId !== undefined;
 
   const startLeftResize = useCallback(
     (e: React.MouseEvent) => {
@@ -47,7 +50,10 @@ export function AppShell({ children }: AppShellProps) {
 
       const onMouseMove = (e: MouseEvent) => {
         const delta = startX - e.clientX;
-        const newWidth = Math.min(Math.max(startWidth + delta, 180), 480);
+        const newWidth = Math.min(
+          Math.max(startWidth + delta, MIN_SIDEBAR_WIDTH),
+          MAX_SIDEBAR_WIDTH,
+        );
         setRightWidth(newWidth);
       };
 
