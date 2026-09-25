@@ -106,6 +106,8 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "openbook-settings",
+      // v2 adds provider selection; a v1 blob has no provider and would
+      // otherwise leave the picker empty
       version: 0,
     },
   ),
