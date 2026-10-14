@@ -7,16 +7,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, RotateCcw, Trash2 } from "lucide-react";
-import { useOpenBookStore } from "@/store/openBookStore";
+import { useOpenBookStore, useBookFlashcards } from "@/store/openBookStore";
 import { useUIStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
 
-export function FlashcardsDialog() {
-  const { activeDialog, setActiveDialog } = useUIStore();
-  const { openBooks, activeOpenBookId, removeFlashcard } = useOpenBookStore();
-
-  const activeOpenBook = openBooks[activeOpenBookId ?? ""];
-  const flashcards = activeOpenBook?.flashcards ?? [];
+export function FlashcardsDialog({ openBookId }: { openBookId: string }) {
+  const activeDialog = useUIStore((s) => s.activeDialog);
+  const setActiveDialog = useUIStore((s) => s.setActiveDialog);
+  const removeFlashcard = useOpenBookStore((s) => s.removeFlashcard);
+  const flashcards = useBookFlashcards(openBookId);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -132,7 +131,7 @@ export function FlashcardsDialog() {
                     variant="ghost"
                     size="icon"
                     className="w-6 h-6 shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeFlashcard(activeOpenBookId!, card.id)}
+                    onClick={() => removeFlashcard(openBookId, card.id)}
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>

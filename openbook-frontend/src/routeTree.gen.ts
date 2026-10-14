@@ -9,55 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ReaderRouteImport } from './routes/reader'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReaderOpenBookIdRouteImport } from './routes/reader.$openBookId'
 
-const ReaderRoute = ReaderRouteImport.update({
-  id: '/reader',
-  path: '/reader',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReaderOpenBookIdRoute = ReaderOpenBookIdRouteImport.update({
+  id: '/reader/$openBookId',
+  path: '/reader/$openBookId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/reader': typeof ReaderRoute
+  '/reader/$openBookId': typeof ReaderOpenBookIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/reader': typeof ReaderRoute
+  '/reader/$openBookId': typeof ReaderOpenBookIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/reader': typeof ReaderRoute
+  '/reader/$openBookId': typeof ReaderOpenBookIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/reader'
+  fullPaths: '/' | '/reader/$openBookId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/reader'
-  id: '__root__' | '/' | '/reader'
+  to: '/' | '/reader/$openBookId'
+  id: '__root__' | '/' | '/reader/$openBookId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ReaderRoute: typeof ReaderRoute
+  ReaderOpenBookIdRoute: typeof ReaderOpenBookIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reader': {
-      id: '/reader'
-      path: '/reader'
-      fullPath: '/reader'
-      preLoaderRoute: typeof ReaderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -65,12 +58,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reader/$openBookId': {
+      id: '/reader/$openBookId'
+      path: '/reader/$openBookId'
+      fullPath: '/reader/$openBookId'
+      preLoaderRoute: typeof ReaderOpenBookIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ReaderRoute: ReaderRoute,
+  ReaderOpenBookIdRoute: ReaderOpenBookIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -11,16 +11,16 @@ import { useUIStore } from "@/store/uiStore";
 import { CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function MCQDialog({ openBookId }: { openBookId: string }) {
-  const { activeDialog, setActiveDialog } = useUIStore();
-  const { openBooks } = useOpenBookStore();
-  const activeOpenBook = openBooks[openBookId];
+export function MCQDialog({ openBookId: _openBookId }: { openBookId: string }) {
+  const activeDialog = useUIStore((s) => s.activeDialog);
+  const setActiveDialog = useUIStore((s) => s.setActiveDialog);
 
   const sessionId =
     activeDialog?.type === "mcq" ? activeDialog.sessionId : null;
-  const session = sessionId
-    ? activeOpenBook?.mcqSessions.find((s) => s.id === sessionId)
-    : null;
+
+  const session = useOpenBookStore((s) =>
+    sessionId ? s.mcqSessions[sessionId] : undefined,
+  );
 
   const [questions, setQuestions] = useState(session?.questions ?? []);
   const [prevSessionId, setPrevSessionId] = useState(sessionId);

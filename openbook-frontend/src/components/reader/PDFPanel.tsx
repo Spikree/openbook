@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { OpenBook } from "@/store/openBookStore";
+import { useBookDocuments } from "@/store/openBookStore";
 import { FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,28 @@ import "react-pdf/dist/Page/TextLayer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export function PDFPanel({ openBook }: { openBook: OpenBook }) {
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(
-    openBook.documents[0]?.id ?? null,
-  );
+interface PDFPanelProps {
+  openBookId: string;
+}
+
+export function PDFPanel({ openBookId }: PDFPanelProps) {
+  const documents = useBookDocuments(openBookId);
+
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState(1);
 
-  const selectedDoc = openBook.documents.find((d) => d.id === selectedDocId);
+  // derive the effective selection instead of syncing state:
+  // falls back to the first document when nothing is picked yet
+  // (documents can arrive after mount now) or the pick was deleted
+  const effectiveDocId =
+    selectedDocId && documents.some((d) => d.id === selectedDocId)
+      ? selectedDocId
+      : (documents[0]?.id ?? null);
 
-  if (openBook.documents.length === 0) {
+  const selectedDoc = documents.find((d) => d.id === effectiveDocId);
+
+  if (documents.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
         <FileText className="w-8 h-8 mb-2 opacity-20" />
@@ -28,19 +40,11 @@ export function PDFPanel({ openBook }: { openBook: OpenBook }) {
     );
   }
 
-  console.log("selectedDoc", selectedDoc);
-  console.log("documents", openBook.documents);
-  console.log("selectedDocId", selectedDocId);
-  console.log(
-    "file url",
-    selectedDoc ? api.getDocumentFileUrl(selectedDoc.id) : "no doc",
-  );
-
   return (
     <div className="h-full flex flex-col">
-      {openBook.documents.length > 1 && (
+      {documents.length > 1 && (
         <div className="shrink-0 flex gap-2 px-4 py-2 border-b border-border overflow-x-auto">
-          {openBook.documents.map((doc) => (
+          {documents.map((doc) => (
             <button
               key={doc.id}
               onClick={() => {
@@ -48,7 +52,7 @@ export function PDFPanel({ openBook }: { openBook: OpenBook }) {
                 setPageNumber(1);
               }}
               className={`shrink-0 text-xs px-3 py-1.5 rounded-md transition-colors ${
-                selectedDocId === doc.id
+                effectiveDocId === doc.id
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
@@ -59,7 +63,6 @@ export function PDFPanel({ openBook }: { openBook: OpenBook }) {
         </div>
       )}
 
-      {/* Page controls */}
       {numPages > 0 && (
         <div className="shrink-0 flex items-center justify-center gap-3 px-4 py-2 border-b border-border">
           <Button
@@ -107,9 +110,9 @@ export function PDFPanel({ openBook }: { openBook: OpenBook }) {
           >
             <Page
               pageNumber={pageNumber}
-              renderTextLayer={true}
               scale={0.8}
-              renderAnnotationLayer={true}
+              renderTextLayer
+              renderAnnotationLayer
             />
           </Document>
         ) : (

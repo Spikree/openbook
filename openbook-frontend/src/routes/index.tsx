@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { api } from "@/api/client";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -18,16 +17,17 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { openBooks, deleteOpenBook, setActiveOpenBook, renameOpenBook } =
-    useOpenBookStore();
+  const openBooks = useOpenBookStore((s) => s.openBooks);
+  const deleteOpenBook = useOpenBookStore((s) => s.deleteOpenBook);
+  const renameOpenBook = useOpenBookStore((s) => s.renameOpenBook);
+
   const navigate = useNavigate();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
 
   const handleOpen = (id: string) => {
-    setActiveOpenBook(id);
-    navigate({ to: "/reader" });
+    navigate({ to: "/reader/$openBookId", params: { openBookId: id } });
   };
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
@@ -44,10 +44,9 @@ function Home() {
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      await api.deleteOpenBook(deleteId);
-      deleteOpenBook(deleteId);
-    } catch (err) {
-      console.error(err);
+      await deleteOpenBook(deleteId); // store: API + cascade + toast
+    } catch {
+      // store handles toast
     } finally {
       setDeleteId(null);
     }
@@ -57,8 +56,8 @@ function Home() {
     if (!renameId || !newName.trim()) return;
     try {
       await renameOpenBook(renameId, newName.trim());
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // store handles toast
     } finally {
       setRenameId(null);
       setNewName("");
@@ -126,8 +125,8 @@ function Home() {
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <FileText className="w-3 h-3" />
                 <span>
-                  {ob.documents.length} document
-                  {ob.documents.length !== 1 ? "s" : ""}
+                  {ob.documentIds.length} document
+                  {ob.documentIds.length !== 1 ? "s" : ""}
                 </span>
               </div>
             </Card>

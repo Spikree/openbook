@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
-import type { OpenBook } from "@/store/openBookStore";
-import { useOpenBookStore } from "@/store/openBookStore";
+import { useOpenBookStore, useBookMessages } from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import {
   SendHorizonal,
   Bot,
@@ -17,13 +15,21 @@ import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
 import { useTTS } from "@/hooks/useTTS";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useActiveOpenBook } from "@/hooks/useActiveOpenBook";
 
 interface ChatPanelProps {
-  openBook: OpenBook;
+  openBookId: string;
 }
 
-export function ChatPanel({ openBook }: ChatPanelProps) {
-  const { addMessage, clearConversation } = useOpenBookStore();
+export function ChatPanel({ openBookId }: ChatPanelProps) {
+  const addMessage = useOpenBookStore((s) => s.addMessage);
+  const clearConversation = useOpenBookStore((s) => s.clearConversation);
+
+  // book meta: needed for selectedDocumentIds
+  const book = useActiveOpenBook();
+  // resolved message entities, in order
+  const messages = useBookMessages(openBookId);
+
   const { pendingChatMessage, setPendingChatMessage } = useUIStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +45,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [openBook.conversations, streamingContent]);
+  }, [messages, streamingContent]);
 
   const handleSpeak = (id: string, content: string) => {
     if (speakingId === id && isSpeaking) {
@@ -54,11 +60,9 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // strip the data:image/png;base64, prefix
       const base64 = result.split(",")[1];
       setPendingImage(base64);
     };
@@ -66,7 +70,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
   };
 
   const handleSendMessage = async (messageText: string) => {
-    if ((!messageText.trim() && !pendingImage) || isLoading) return;
+    if ((!messageText.trim() && !pendingImage) || isLoading || !book) return;
 
     const userMessage = {
       id: crypto.randomUUID(),
@@ -76,7 +80,11 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       image: pendingImage ?? undefined,
     };
 
-    addMessage(openBook.id, userMessage);
+    // history snapshot from render — does not include the message we
+    // just added (it goes separately as `message`)
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+
+    addMessage(openBookId, userMessage);
     const imageToSend = pendingImage;
     setPendingImage(null);
     setInput("");
@@ -85,16 +93,13 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
 
     try {
       await api.chat(
-        openBook.id,
+        openBookId,
         userMessage.content,
-        openBook.selectedDocumentIds,
-        openBook.conversations.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        book.selectedDocumentIds,
+        history,
         (chunk) => setStreamingContent((prev) => prev + chunk),
         (full) => {
-          addMessage(openBook.id, {
+          addMessage(openBookId, {
             id: crypto.randomUUID(),
             role: "assistant",
             content: full,
@@ -107,10 +112,6 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       );
     } catch (err) {
       console.error(err);
-      toast.error("Failed to send message", {
-        description:
-          err instanceof Error ? err.message : "Something went wrong",
-      });
       setIsLoading(false);
       setStreamingContent("");
     }
@@ -135,19 +136,23 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
     }
   };
 
+  if (!book) return null;
+
+  const noDocsSelected = book.selectedDocumentIds.length === 0;
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
         <p className="text-xs text-muted-foreground">
-          {openBook.selectedDocumentIds.length} document
-          {openBook.selectedDocumentIds.length !== 1 ? "s" : ""} selected
+          {book.selectedDocumentIds.length} document
+          {book.selectedDocumentIds.length !== 1 ? "s" : ""} selected
         </p>
-        {openBook.conversations.length > 0 && (
+        {messages.length > 0 && (
           <Button
             variant="ghost"
             size="icon"
             className="w-7 h-7 text-muted-foreground hover:text-destructive"
-            onClick={() => clearConversation(openBook.id)}
+            onClick={() => clearConversation(openBookId)}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
@@ -155,7 +160,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {openBook.conversations.length === 0 && !streamingContent ? (
+        {messages.length === 0 && !streamingContent ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
             <p className="text-sm">Ask anything about your documents</p>
             <p className="text-xs opacity-60">
@@ -164,7 +169,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
           </div>
         ) : (
           <>
-            {openBook.conversations.map((msg) => (
+            {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={cn(
@@ -172,12 +177,6 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
                   msg.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
-                {/*{msg.role === "assistant" && (
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                )}*/}
-
                 {msg.role === "assistant" ? (
                   <div className="flex flex-col gap-1 max-w-[80%]">
                     <div className="rounded-xl px-3 py-2 text-sm bg-muted text-foreground">
@@ -214,12 +213,6 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
                     {msg.content}
                   </div>
                 )}
-
-                {/*{msg.role === "user" && (
-                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                )}*/}
               </div>
             ))}
 
@@ -298,11 +291,11 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              openBook.selectedDocumentIds.length === 0
+              noDocsSelected
                 ? "Select documents first..."
                 : "Ask about your documents..."
             }
-            disabled={openBook.selectedDocumentIds.length === 0}
+            disabled={noDocsSelected}
             rows={1}
             className="flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary max-h-32 overflow-y-auto disabled:opacity-50"
             style={{ minHeight: "38px" }}
@@ -311,9 +304,7 @@ export function ChatPanel({ openBook }: ChatPanelProps) {
             size="icon"
             onClick={handleSend}
             disabled={
-              (!input.trim() && !pendingImage) ||
-              isLoading ||
-              openBook.selectedDocumentIds.length === 0
+              (!input.trim() && !pendingImage) || isLoading || noDocsSelected
             }
             className="shrink-0"
           >

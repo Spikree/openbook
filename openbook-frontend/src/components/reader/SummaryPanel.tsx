@@ -1,28 +1,40 @@
 import { useState } from "react";
-import type { OpenBook } from "@/store/openBookStore";
-import { useOpenBookStore } from "@/store/openBookStore";
+import {
+  useOpenBookStore,
+  useBookDocuments,
+  useBookSummaries,
+} from "@/store/openBookStore";
 import { Button } from "@/components/ui/button";
 import { FileText, Sparkles, Trash2 } from "lucide-react";
 import { api } from "@/api/client";
 import ReactMarkdown from "react-markdown";
+import { useActiveOpenBook } from "@/hooks/useActiveOpenBook";
 
-export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
-  const { addSummary, removeSummary } = useOpenBookStore();
+interface SummaryPanelProps {
+  openBookId: string;
+}
+
+export function SummaryPanel({ openBookId }: SummaryPanelProps) {
+  const addSummary = useOpenBookStore((s) => s.addSummary);
+  const removeSummary = useOpenBookStore((s) => s.removeSummary);
+  const book = useActiveOpenBook();
+  const documents = useBookDocuments(openBookId);
+  const summaries = useBookSummaries(openBookId);
+
   const [isLoading, setIsLoading] = useState(false);
 
-  const selectedDocs = openBook.documents.filter((d) =>
-    openBook.selectedDocumentIds.includes(d.id),
+  if (!book) return null;
+
+  const selectedDocs = documents.filter((d) =>
+    book.selectedDocumentIds.includes(d.id),
   );
 
   const handleGenerate = async () => {
     if (selectedDocs.length === 0 || isLoading) return;
     setIsLoading(true);
     try {
-      const data = await api.summarise(
-        openBook.id,
-        openBook.selectedDocumentIds,
-      );
-      addSummary(openBook.id, {
+      const data = await api.summarise(openBookId, book.selectedDocumentIds);
+      addSummary(openBookId, {
         id: crypto.randomUUID(),
         content: data.summary,
         documentId: selectedDocs[0].id,
@@ -60,7 +72,7 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
         </div>
       )}
 
-      {openBook.summaries.length === 0 && selectedDocs.length > 0 && (
+      {summaries.length === 0 && selectedDocs.length > 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-20" />
           <p className="text-xs">Click generate to summarise your documents</p>
@@ -68,7 +80,7 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
       )}
 
       <div className="space-y-4">
-        {openBook.summaries.map((summary) => (
+        {summaries.map((summary) => (
           <div
             key={summary.id}
             className="rounded-lg border border-border bg-card p-4 space-y-2"
@@ -81,7 +93,7 @@ export function SummaryPanel({ openBook }: { openBook: OpenBook }) {
                 variant="ghost"
                 size="icon"
                 className="w-6 h-6 text-muted-foreground hover:text-destructive"
-                onClick={() => removeSummary(openBook.id, summary.id)}
+                onClick={() => removeSummary(openBookId, summary.id)}
               >
                 <Trash2 className="w-3 h-3" />
               </Button>

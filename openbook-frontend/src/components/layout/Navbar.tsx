@@ -24,28 +24,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@/api/client";
 import { SettingsSheet } from "@/components/settings/SettingsSheet";
+import { useActiveOpenBook } from "@/hooks/useActiveOpenBook";
 
 type DialogView = "choice" | "create";
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
-  const {
-    openBooks,
-    activeOpenBookId,
-    setActiveOpenBook,
-    clearActiveOpenBook,
-  } = useOpenBookStore();
+
+  const openBooks = useOpenBookStore((s) => s.openBooks);
+  const createOpenBook = useOpenBookStore((s) => s.createOpenBook);
+  const activeOpenBook = useActiveOpenBook(); // from URL param
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [view, setView] = useState<DialogView>("choice");
   const [name, setName] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
-
-  const activeOpenBook = Object.values(openBooks).find(
-    (ob) => ob.id === activeOpenBookId,
-  );
 
   const handleOpen = () => {
     setView("choice");
@@ -60,20 +55,16 @@ export function Navbar() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    try {
-      const created = await api.createOpenBook(name.trim());
-      // use the real id from backend
-      useOpenBookStore.getState().createOpenBook(created.name, created.id);
+    const book = await createOpenBook(name.trim()); // store: API + state + toast
+    if (book) {
       setName("");
       handleClose();
-    } catch (err) {
-      console.error(err);
+      navigate({ to: "/reader/$openBookId", params: { openBookId: book.id } });
     }
   };
 
   const handleSwitch = (id: string) => {
-    setActiveOpenBook(id);
-    navigate({ to: "/reader" });
+    navigate({ to: "/reader/$openBookId", params: { openBookId: id } });
   };
 
   const handleOpenExisting = (id: string) => {
@@ -84,15 +75,10 @@ export function Navbar() {
   return (
     <>
       <header className="h-16 flex items-center justify-between px-6 bg-card border-b border-border gap-4">
-        {/* Left — open/create */}
-
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
-            clearActiveOpenBook();
-            navigate({ to: "/" });
-          }}
+          onClick={() => navigate({ to: "/" })}
         >
           <Home className="w-4 h-4" />
         </Button>
@@ -127,7 +113,7 @@ export function Navbar() {
                   >
                     <BookOpen className="w-4 h-4 text-primary" />
                     <span className="flex-1 truncate">{ob.name}</span>
-                    {ob.id === activeOpenBookId && (
+                    {ob.id === activeOpenBook.id && (
                       <span className="text-xs text-muted-foreground">
                         active
                       </span>
@@ -143,7 +129,6 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Right — theme toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {theme === "dark" ? (
             <Sun className="w-4 h-4" />
@@ -151,8 +136,6 @@ export function Navbar() {
             <Moon className="w-4 h-4" />
           )}
         </Button>
-
-        {/* take you to the settings*/}
 
         <Button
           variant="ghost"
@@ -201,12 +184,12 @@ export function Navbar() {
                               {ob.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {ob.documents.length} doc
-                              {ob.documents.length !== 1 ? "s" : ""} ·{" "}
+                              {ob.documentIds.length} doc
+                              {ob.documentIds.length !== 1 ? "s" : ""} ·{" "}
                               {new Date(ob.updatedAt).toLocaleDateString()}
                             </p>
                           </div>
-                          {ob.id === activeOpenBookId && (
+                          {ob.id === activeOpenBook?.id && (
                             <span className="text-xs text-primary font-medium">
                               active
                             </span>

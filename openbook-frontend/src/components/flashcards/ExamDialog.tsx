@@ -13,15 +13,16 @@ import { GraduationCap, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { api } from "@/api/client";
 
 export function ExamDialog({ openBookId }: { openBookId: string }) {
-  const { activeDialog, setActiveDialog } = useUIStore();
-  const { openBooks } = useOpenBookStore();
-  const activeOpenBook = openBooks[openBookId];
+  const activeDialog = useUIStore((s) => s.activeDialog);
+  const setActiveDialog = useUIStore((s) => s.setActiveDialog);
 
   const sessionId =
     activeDialog?.type === "exam" ? activeDialog.sessionId : null;
-  const session = sessionId
-    ? activeOpenBook?.examSessions.find((s) => s.id === sessionId)
-    : null;
+
+  // direct table lookup — no array scan, no openBooks subscription
+  const session = useOpenBookStore((s) =>
+    sessionId ? s.examSessions[sessionId] : undefined,
+  );
 
   const [questions, setQuestions] = useState(session?.questions ?? []);
   const [result, setResult] = useState<MarkingResult | null>(
@@ -64,7 +65,6 @@ export function ExamDialog({ openBookId }: { openBookId: string }) {
     setResult(null);
   };
 
-  // Pre-calculate color for results to keep JSX clean
   const color = result
     ? result.percentage >= 70
       ? "text-green-500"
@@ -77,7 +77,6 @@ export function ExamDialog({ openBookId }: { openBookId: string }) {
     <Dialog open={open} onOpenChange={(o) => !o && setActiveDialog(null)}>
       {session && (
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-          {/* Conditional UI swap happens INSIDE the dialog shell */}
           {result ? (
             <>
               <DialogHeader>

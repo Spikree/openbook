@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { useOpenBookStore } from "@/store/openBookStore";
+import {
+  useOpenBookStore,
+  useBookFlashcards,
+  useBookExamSessions,
+  useBookMCQSessions,
+  useBookNotes,
+} from "@/store/openBookStore";
+import { useActiveOpenBook } from "@/hooks/useActiveOpenBook";
 import { useUIStore } from "@/store/uiStore";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -19,26 +26,27 @@ import { NoteEditor } from "@/components/notes/NoteEditor";
 type GenerateType = "flashcards" | "exam" | "mcq";
 
 export function RightSidebar() {
-  const {
-    openBooks,
-    activeOpenBookId,
-    removeExamSession,
-    removeMCQSession,
-    removeFlashcard,
-    deleteNote,
-    loadNotes,
-    generateFlashcards,
-    generateExam,
-    generateMCQ,
-  } = useOpenBookStore();
-  const { setActiveDialog } = useUIStore();
+  const generateFlashcards = useOpenBookStore((s) => s.generateFlashcards);
+  const generateExam = useOpenBookStore((s) => s.generateExam);
+  const generateMCQ = useOpenBookStore((s) => s.generateMCQ);
+  const removeExamSession = useOpenBookStore((s) => s.removeExamSession);
+  const removeMCQSession = useOpenBookStore((s) => s.removeMCQSession);
+  const removeFlashcard = useOpenBookStore((s) => s.removeFlashcard);
+  const deleteNote = useOpenBookStore((s) => s.deleteNote);
+  const loadNotes = useOpenBookStore((s) => s.loadNotes);
+  const setActiveDialog = useUIStore((s) => s.setActiveDialog);
 
-  const activeOpenBook = openBooks[activeOpenBookId ?? ""];
+  const activeOpenBook = useActiveOpenBook(); // from URL param
+  const flashcards = useBookFlashcards(activeOpenBook?.id);
+  const examSessions = useBookExamSessions(activeOpenBook?.id);
+  const mcqSessions = useBookMCQSessions(activeOpenBook?.id);
+  const notes = useBookNotes(activeOpenBook?.id);
+
   const [isGenerating, setIsGenerating] = useState<GenerateType | null>(null);
 
   useEffect(() => {
-    if (activeOpenBookId) loadNotes(activeOpenBookId);
-  }, [activeOpenBookId]);
+    if (activeOpenBook?.id) loadNotes(activeOpenBook.id);
+  }, [activeOpenBook?.id, loadNotes]);
 
   if (!activeOpenBook) {
     return (
@@ -50,12 +58,10 @@ export function RightSidebar() {
     );
   }
 
-  const selectedDocs = activeOpenBook.documents.filter((d) =>
-    activeOpenBook.selectedDocumentIds.includes(d.id),
-  );
+  const noDocsSelected = activeOpenBook.selectedDocumentIds.length === 0;
 
   const handleGenerate = async (type: GenerateType) => {
-    if (selectedDocs.length === 0 || isGenerating) return;
+    if (noDocsSelected || isGenerating) return;
     setIsGenerating(type);
     try {
       if (type === "flashcards") {
@@ -63,26 +69,20 @@ export function RightSidebar() {
         setActiveDialog({ type: "flashcards" });
       } else if (type === "exam") {
         await generateExam(activeOpenBook.id);
-        const sessions =
-          useOpenBookStore.getState().openBooks[activeOpenBook.id].examSessions;
-        setActiveDialog({
-          type: "exam",
-          sessionId: sessions[sessions.length - 1].id,
-        });
+        // freshest id arrays straight from the store, post-generate
+        const ids =
+          useOpenBookStore.getState().openBooks[activeOpenBook.id]
+            ?.examSessionIds ?? [];
+        setActiveDialog({ type: "exam", sessionId: ids[ids.length - 1] });
       } else if (type === "mcq") {
         await generateMCQ(activeOpenBook.id);
-        const sessions =
-          useOpenBookStore.getState().openBooks[activeOpenBook.id].mcqSessions;
-        setActiveDialog({
-          type: "mcq",
-          sessionId: sessions[sessions.length - 1].id,
-        });
+        const ids =
+          useOpenBookStore.getState().openBooks[activeOpenBook.id]
+            ?.mcqSessionIds ?? [];
+        setActiveDialog({ type: "mcq", sessionId: ids[ids.length - 1] });
       }
     } catch {
-      // commenting this out because error messages are handled in main openbookstore
-      // toast.error(`Failed to generate ${type}`, {
-      //   description: err instanceof Error ? err.message : "Try again",
-      // });
+      // store handles toast
     } finally {
       setIsGenerating(null);
     }
@@ -102,29 +102,29 @@ export function RightSidebar() {
   };
 
   const allHistory = [
-    ...(activeOpenBook.flashcards.length > 0
+    ...(flashcards.length > 0
       ? [
           {
             type: "flashcards" as const,
             id: "flashcards",
-            label: `Flashcards (${activeOpenBook.flashcards.length} cards)`,
-            createdAt: activeOpenBook.flashcards[0]?.createdAt,
+            label: `Flashcards (${flashcards.length} cards)`,
+            createdAt: flashcards[0]?.createdAt,
           },
         ]
       : []),
-    ...(activeOpenBook.examSessions ?? []).map((s) => ({
+    ...examSessions.map((s) => ({
       type: "exam" as const,
       id: s.id,
       label: `Exam (${s.questions.length} questions)`,
       createdAt: s.createdAt,
     })),
-    ...(activeOpenBook.mcqSessions ?? []).map((s) => ({
+    ...mcqSessions.map((s) => ({
       type: "mcq" as const,
       id: s.id,
       label: `MCQ (${s.questions.length} questions)`,
       createdAt: s.createdAt,
     })),
-    ...(activeOpenBook.notes ?? []).map((n) => ({
+    ...notes.map((n) => ({
       type: "note" as const,
       id: n.id,
       label: n.title || "Untitled note",
@@ -144,7 +144,7 @@ export function RightSidebar() {
           <button
             key={type}
             onClick={() => handleGenerate(type)}
-            disabled={!!isGenerating || selectedDocs.length === 0}
+            disabled={!!isGenerating || noDocsSelected}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
@@ -170,7 +170,7 @@ export function RightSidebar() {
           <span className="text-sm text-foreground">New Note</span>
         </button>
 
-        {selectedDocs.length === 0 && (
+        {noDocsSelected && (
           <p className="text-xs text-muted-foreground text-center pt-2">
             Select documents in the left panel first
           </p>
@@ -230,11 +230,11 @@ export function RightSidebar() {
                         removeExamSession(activeOpenBook.id, item.id);
                       else if (item.type === "mcq")
                         removeMCQSession(activeOpenBook.id, item.id);
-                      else if (item.type === "flashcards") {
-                        activeOpenBook.flashcards.forEach((f) =>
+                      else if (item.type === "flashcards")
+                        flashcards.forEach((f) =>
                           removeFlashcard(activeOpenBook.id, f.id),
                         );
-                      } else if (item.type === "note")
+                      else if (item.type === "note")
                         deleteNote(activeOpenBook.id, item.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
@@ -248,7 +248,7 @@ export function RightSidebar() {
         )}
       </div>
 
-      <FlashcardsDialog />
+      <FlashcardsDialog openBookId={activeOpenBook.id} />
       <ExamDialog openBookId={activeOpenBook.id} />
       <MCQDialog openBookId={activeOpenBook.id} />
       <NoteEditor openBookId={activeOpenBook.id} />

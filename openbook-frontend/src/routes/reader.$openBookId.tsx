@@ -1,42 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useOpenBookStore } from "@/store/openBookStore";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, FileText, BookOpen } from "lucide-react";
 import { ChatPanel } from "@/components/reader/ChatPanel";
 import { SummaryPanel } from "@/components/reader/SummaryPanel";
 import { PDFPanel } from "@/components/reader/PDFPanel";
-import { SelectionPopover } from "@/components/reader/SelectionPopover";
+import { useOpenBookStore } from "@/store/openBookStore";
 import { useUIStore } from "@/store/uiStore";
 
-export const Route = createFileRoute("/reader")({
+export const Route = createFileRoute("/reader/$openBookId")({
   component: Reader,
 });
 
 function Reader() {
-  const { openBooks, activeOpenBookId } = useOpenBookStore();
-  const activeOpenBook = openBooks[activeOpenBookId ?? ""];
-  const { activeReaderTab, setActiveReaderTab } = useUIStore();
+  const { openBookId } = Route.useParams();
+  const book = useOpenBookStore((s) => s.openBooks[openBookId]);
+  const activeReaderTab = useUIStore((s) => s.activeReaderTab);
+  const setActiveReaderTab = useUIStore((s) => s.setActiveReaderTab);
 
-  if (!activeOpenBook) {
+  if (!book) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <div className="text-center">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-20" />
-          <p className="text-sm">No OpenBook selected</p>
+          <p className="text-sm">
+            OpenBook not found — it may still be loading, or was deleted
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col relative">
-      <SelectionPopover />
+    <div className="h-full flex flex-col">
       <Tabs
         value={activeReaderTab}
-        onValueChange={setActiveReaderTab}
+        onValueChange={(v) =>
+          setActiveReaderTab(v as "chat" | "summary" | "pdf")
+        }
         className="flex flex-col h-full"
       >
-        <div className="shrink-0  px-4">
+        <div className="shrink-0  border-border px-4">
           <TabsList className="bg-transparent h-12 gap-1">
             <TabsTrigger
               value="chat"
@@ -61,26 +64,27 @@ function Reader() {
             </TabsTrigger>
           </TabsList>
         </div>
+
         <TabsContent
           value="chat"
           forceMount
           className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden"
         >
-          <ChatPanel openBook={activeOpenBook} />
+          <ChatPanel openBookId={openBookId} />
         </TabsContent>
         <TabsContent
           value="summary"
           forceMount
           className="flex-1 overflow-y-auto mt-0 p-4 data-[state=inactive]:hidden"
         >
-          <SummaryPanel openBook={activeOpenBook} />
+          <SummaryPanel openBookId={openBookId} />
         </TabsContent>
         <TabsContent
           value="pdf"
           forceMount
           className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden"
         >
-          <PDFPanel openBook={activeOpenBook} />
+          <PDFPanel openBookId={openBookId} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,35 +1,40 @@
 import { useRef } from "react";
-import { useOpenBookStore } from "@/store/openBookStore";
+import { useOpenBookStore, useBookDocuments } from "@/store/openBookStore";
+import { useActiveOpenBook } from "@/hooks/useActiveOpenBook";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, Trash2, CheckSquare, Square } from "lucide-react";
 
 export function LeftSidebar() {
-  const {
-    openBooks,
-    activeOpenBookId,
-    uploadDocument,
-    removeDocument,
-    toggleDocumentSelection,
-    selectAllDocuments,
-  } = useOpenBookStore();
+  const uploadDocument = useOpenBookStore((s) => s.uploadDocument);
+  const removeDocument = useOpenBookStore((s) => s.removeDocument);
+  const clearDocumentSelection = useOpenBookStore(
+    (s) => s.clearDocumentSelection,
+  );
+  const toggleDocumentSelection = useOpenBookStore(
+    (s) => s.toggleDocumentSelection,
+  );
+  const selectAllDocuments = useOpenBookStore((s) => s.selectAllDocuments);
+
+  // data: book meta + resolved documents via selector hooks
+  const activeOpenBook = useActiveOpenBook();
+  const documents = useBookDocuments(activeOpenBook?.id);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const activeOpenBook = Object.values(openBooks).find(
-    (ob) => ob.id === activeOpenBookId,
-  );
-
   const processFiles = async (files: FileList | null) => {
-    if (!files || !activeOpenBookId) return;
+    if (!files || !activeOpenBook) return;
     const pdfs = Array.from(files).filter((f) => f.type === "application/pdf");
-    for (const file of pdfs) {
-      try {
-        await uploadDocument(activeOpenBookId, file);
-      } catch {
-        // store handles toast
-      }
-    }
+
+    await Promise.all(
+      pdfs.map(async (file) => {
+        try {
+          await uploadDocument(activeOpenBook.id, file);
+        } catch {
+          // store handles toast
+        }
+      }),
+    );
   };
 
   if (!activeOpenBook) {
@@ -43,10 +48,8 @@ export function LeftSidebar() {
   }
 
   const allSelected =
-    activeOpenBook.documents.length > 0 &&
-    activeOpenBook.documents.every((d) =>
-      activeOpenBook.selectedDocumentIds.includes(d.id),
-    );
+    documents.length > 0 &&
+    documents.every((d) => activeOpenBook.selectedDocumentIds.includes(d.id));
 
   return (
     <div className="h-full w-full border-r border-border flex flex-col overflow-hidden">
@@ -76,11 +79,15 @@ export function LeftSidebar() {
       <Separator />
 
       {/* Select all */}
-      {activeOpenBook.documents.length > 0 && (
+      {documents.length > 0 && (
         <>
           <div className="px-4 py-2 shrink-0">
             <button
-              onClick={() => selectAllDocuments(activeOpenBookId!)}
+              onClick={() =>
+                allSelected
+                  ? clearDocumentSelection(activeOpenBook.id)
+                  : selectAllDocuments(activeOpenBook.id)
+              }
               className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {allSelected ? (
@@ -97,14 +104,14 @@ export function LeftSidebar() {
 
       {/* Document list */}
       <div className="flex-1 overflow-y-auto p-2">
-        {activeOpenBook.documents.length === 0 ? (
+        {documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
             <FileText className="w-8 h-8 opacity-20" />
             <p className="text-xs">No documents yet</p>
           </div>
         ) : (
           <div className="space-y-1">
-            {activeOpenBook.documents.map((doc) => {
+            {documents.map((doc) => {
               const isSelected = activeOpenBook.selectedDocumentIds.includes(
                 doc.id,
               );
@@ -115,7 +122,7 @@ export function LeftSidebar() {
                     isSelected ? "bg-primary/5" : ""
                   }`}
                   onClick={() =>
-                    toggleDocumentSelection(activeOpenBookId!, doc.id)
+                    toggleDocumentSelection(activeOpenBook.id, doc.id)
                   }
                 >
                   {isSelected ? (
@@ -130,7 +137,7 @@ export function LeftSidebar() {
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await removeDocument(activeOpenBookId!, doc.id);
+                      await removeDocument(activeOpenBook.id, doc.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   >

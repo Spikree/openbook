@@ -1,6 +1,7 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { useApplySettings } from "@/hooks/useApplySettings";
+import { useApplyTheme } from "@/hooks/useApplyTheme";
 import { ReadingRuler } from "@/components/reader/ReadingRuler";
 import { useOpenBookStore } from "@/store/openBookStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -14,8 +15,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   useApplySettings();
+  useApplyTheme();
   const { loadOpenBooks } = useOpenBookStore();
-  const { ollamaModel, setSelectedModelCapabilities } = useSettingsStore();
+  const ollamaModel = useSettingsStore((s) => s.modelByProvider.ollama ?? "");
+  const setSelectedModelCapabilities = useSettingsStore((s) => s.setSelectedModelCapabilities);
+
 
   // all the fetching is done in the store so we dont need to add anything to the dep array
   useEffect(() => {
