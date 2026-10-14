@@ -5,7 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/opendyslexic" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>openbook-frontend</title>
+    <title>OpenBook</title>
+    <!--
+      Apply the saved theme before first paint, so dark-mode users never see a
+      white flash. Mirrors useApplyTheme; reads the "openbook-theme" store.
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("openbook-theme");
+          var state = raw ? JSON.parse(raw).state : null;
+          var legacy = localStorage.getItem("theme");
+          var mode = (state && state.mode) || (legacy === "light" || legacy === "dark" ? legacy : "system");
+          var id = (state && state.themeId) || "default";
+          var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add("dark");
+          if (id !== "default") root.setAttribute("data-theme-id", id);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
